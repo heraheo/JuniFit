@@ -1,15 +1,15 @@
 import Link from "next/link";
-import { Plus, Play } from "lucide-react";
+import { Plus, Play, FolderOpen } from "lucide-react";
 
 export default function Page() {
   return (
     <main className="min-h-screen flex flex-col items-center justify-center py-12 px-4">
       <h1 className="text-3xl font-bold text-center mb-8">JuniFit</h1>
 
-      <div className="w-full flex gap-6">
+      <div className="w-full flex gap-6 mb-6">
         <Link
           href="/templates/new"
-          className="flex-1 bg-white rounded-2xl shadow-lg p-8 flex flex-col items-center justify-center gap-4 text-center"
+          className="flex-1 bg-white rounded-2xl shadow-lg p-8 flex flex-col items-center justify-center gap-4 text-center hover:shadow-xl transition-shadow"
           aria-label="새 프로그램 만들기"
         >
           <Plus className="w-14 h-14 text-slate-700" />
@@ -18,13 +18,22 @@ export default function Page() {
 
         <Link
           href="/workout"
-          className="flex-1 bg-white rounded-2xl shadow-lg p-8 flex flex-col items-center justify-center gap-4 text-center"
+          className="flex-1 bg-white rounded-2xl shadow-lg p-8 flex flex-col items-center justify-center gap-4 text-center hover:shadow-xl transition-shadow"
           aria-label="오늘의 운동 시작"
         >
           <Play className="w-14 h-14 text-slate-700" />
           <span className="text-lg font-medium text-slate-800">오늘의 운동 시작</span>
         </Link>
       </div>
+
+      {/* 프로그램 관리 버튼 */}
+      <Link
+        href="/programs/manage"
+        className="w-full bg-white rounded-xl shadow-md p-4 flex items-center justify-center gap-3 hover:shadow-lg transition-shadow border border-gray-100"
+      >
+        <FolderOpen className="w-5 h-5 text-blue-600" />
+        <span className="text-base font-medium text-slate-800">저장된 프로그램 목록 관리</span>
+      </Link>
 
       <section className="w-full mt-8">
         <h2 className="text-lg font-semibold mb-2">최근 운동 기록</h2>

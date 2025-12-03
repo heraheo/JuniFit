@@ -1,10 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useParams } from "next/navigation";
 import { Trash, ArrowLeft } from "lucide-react";
 import { supabase } from "@/lib/supabase";
+import type { Program, ProgramExercise } from "@/types/database";
 
 type ExerciseInput = {
   id: string;
@@ -15,24 +16,78 @@ type ExerciseInput = {
   note: string;
 };
 
-export default function Page() {
+export default function ProgramEditPage() {
   const router = useRouter();
+  const params = useParams();
+  const programId = params.id as string;
+
+  const [loading, setLoading] = useState(true);
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
-  const [exercises, setExercises] = useState<ExerciseInput[]>([
-    { id: String(Date.now()), name: "", target: { sets: "", reps: { min: "", max: "" } }, restSeconds: "", intention: "", note: "" },
-  ]);
+  const [exercises, setExercises] = useState<ExerciseInput[]>([]);
   const [errors, setErrors] = useState<{
     title?: string;
     description?: string;
     exercises?: Record<string, { summary?: string }>;
   }>({});
   const [inputErrors, setInputErrors] = useState<Record<string, string>>({});
-  const [showSuccessModal, setShowSuccessModal] = useState(false);
-  const [savedProgramInfo, setSavedProgramInfo] = useState<{ title: string; exerciseCount: number } | null>(null);
   const [isSaving, setIsSaving] = useState(false);
-  const [showDuplicateModal, setShowDuplicateModal] = useState(false);
-  const [duplicateTitle, setDuplicateTitle] = useState("");
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
+
+  useEffect(() => {
+    fetchProgram();
+  }, [programId]);
+
+  async function fetchProgram() {
+    setLoading(true);
+    try {
+      // 프로그램 정보 가져오기
+      const { data: program, error: programError } = await supabase
+        .from('programs')
+        .select('*')
+        .eq('id', programId)
+        .single();
+
+      if (programError) throw programError;
+      if (!program) throw new Error('프로그램을 찾을 수 없습니다.');
+
+      // 프로그램 운동 목록 가져오기
+      const { data: programExercises, error: exercisesError } = await supabase
+        .from('program_exercises')
+        .select('*')
+        .eq('program_id', programId)
+        .order('order', { ascending: true });
+
+      if (exercisesError) throw exercisesError;
+
+      setTitle(program.title);
+      setDescription(program.description || '');
+
+      // DB 데이터를 UI 형식으로 변환
+      const convertedExercises: ExerciseInput[] = (programExercises || []).map((ex) => ({
+        id: ex.id,
+        name: ex.name,
+        target: {
+          sets: ex.target_sets,
+          reps: { min: ex.target_reps, max: ex.target_reps }
+        },
+        restSeconds: ex.rest_seconds,
+        intention: ex.intention || '',
+        note: ex.note || ''
+      }));
+
+      setExercises(convertedExercises.length > 0 ? convertedExercises : [
+        { id: String(Date.now()), name: "", target: { sets: "", reps: { min: "", max: "" } }, restSeconds: "", intention: "", note: "" }
+      ]);
+
+    } catch (error) {
+      console.error('Error fetching program:', error);
+      alert('프로그램을 불러오는데 실패했습니다.');
+      router.push('/programs/manage');
+    } finally {
+      setLoading(false);
+    }
+  }
 
   const addExercise = () => {
     setExercises((prev) => [
@@ -141,37 +196,26 @@ export default function Page() {
     setIsSaving(true);
 
     try {
-      // 프로그램 제목 중복 체크
-      const { data: existingPrograms, error: checkError } = await supabase
+      // 1. 프로그램 정보 업데이트
+      const { error: programError } = await supabase
         .from('programs')
-        .select('id, title')
-        .eq('title', title.trim());
-
-      if (checkError) throw checkError;
-
-      if (existingPrograms && existingPrograms.length > 0) {
-        setDuplicateTitle(title.trim());
-        setShowDuplicateModal(true);
-        setIsSaving(false);
-        return;
-      }
-
-      // 1. 프로그램 저장
-      const { data: programData, error: programError } = await supabase
-        .from('programs')
-        .insert({
+        .update({
           title: title.trim(),
           description: description.trim(),
         })
-        .select()
-        .single();
+        .eq('id', programId);
 
       if (programError) throw programError;
-      if (!programData) throw new Error('프로그램 저장에 실패했습니다.');
 
-      const programId = programData.id;
+      // 2. 기존 운동 목록 삭제
+      const { error: deleteError } = await supabase
+        .from('program_exercises')
+        .delete()
+        .eq('program_id', programId);
 
-      // 2. 운동 목록 저장
+      if (deleteError) throw deleteError;
+
+      // 3. 새로운 운동 목록 저장
       const programExercises = exercises
         .filter((ex) => {
           return (
@@ -200,29 +244,33 @@ export default function Page() {
 
       if (exercisesError) throw exercisesError;
 
-      setSavedProgramInfo({
-        title: title,
-        exerciseCount: programExercises.length
-      });
       setIsSaving(false);
       setShowSuccessModal(true);
 
     } catch (error) {
-      console.error('Save error:', error);
+      console.error('Update error:', error);
       setIsSaving(false);
-      alert(`저장 중 오류가 발생했습니다.\n${error instanceof Error ? error.message : '알 수 없는 오류'}`);
+      alert(`수정 중 오류가 발생했습니다.\n${error instanceof Error ? error.message : '알 수 없는 오류'}`);
     }
   };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <p className="text-slate-600">로딩 중...</p>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen pb-32 px-4 pt-6 bg-gray-50">
       <div className="max-w-md mx-auto">
         {/* Header */}
         <header className="flex items-center mb-6">
-          <Link href="/" className="text-slate-600 mr-4">
+          <Link href="/programs/manage" className="text-slate-600 mr-4">
             <ArrowLeft className="w-6 h-6" />
           </Link>
-          <h1 className="text-xl font-bold">새 프로그램 만들기</h1>
+          <h1 className="text-xl font-bold">프로그램 수정</h1>
         </header>
 
         {/* Basic info */}
@@ -393,37 +441,37 @@ export default function Page() {
             + 운동 추가
           </button>
         </section>
-      </div>
 
-      {/* Save button */}
-      <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 p-4">
-        <div className="max-w-md mx-auto">
-          <button
-            onClick={save}
-            disabled={isSaving}
-            className={`w-full text-white rounded-full py-4 font-semibold text-lg shadow-lg transition-colors ${
-              isSaving 
-                ? 'bg-gray-400 cursor-not-allowed' 
-                : 'bg-blue-600 hover:bg-blue-700'
-            }`}
-          >
-            {isSaving ? (
-              <span className="flex items-center justify-center gap-2">
-                <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                </svg>
-                저장 중...
-              </span>
-            ) : (
-              '저장하기'
-            )}
-          </button>
+        {/* Save button */}
+        <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 p-4">
+          <div className="max-w-md mx-auto">
+            <button
+              onClick={save}
+              disabled={isSaving}
+              className={`w-full text-white rounded-full py-4 font-semibold text-lg shadow-lg transition-colors ${
+                isSaving 
+                  ? 'bg-gray-400 cursor-not-allowed' 
+                  : 'bg-blue-600 hover:bg-blue-700'
+              }`}
+            >
+              {isSaving ? (
+                <span className="flex items-center justify-center gap-2">
+                  <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                  저장 중...
+                </span>
+              ) : (
+                '수정 완료'
+              )}
+            </button>
+          </div>
         </div>
       </div>
 
       {/* Success Modal */}
-      {showSuccessModal && savedProgramInfo && (
+      {showSuccessModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl shadow-2xl p-6 max-w-sm w-full">
             <div className="text-center mb-6">
@@ -432,52 +480,16 @@ export default function Page() {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                 </svg>
               </div>
-              <h2 className="text-2xl font-bold text-slate-800 mb-2">저장 완료!</h2>
+              <h2 className="text-2xl font-bold text-slate-800 mb-2">수정 완료!</h2>
               <p className="text-slate-600">
-                <span className="font-semibold text-blue-600">{savedProgramInfo.title}</span> 프로그램이 저장되었습니다.
+                <span className="font-semibold text-blue-600">{title}</span> 프로그램이 수정되었습니다.
               </p>
             </div>
             <button
-              onClick={() => router.push('/')}
+              onClick={() => router.push('/programs/manage')}
               className="w-full bg-blue-600 text-white py-3 rounded-xl font-semibold hover:bg-blue-700 transition-colors"
             >
-              홈으로
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* Duplicate Name Modal */}
-      {showDuplicateModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-2xl p-6 max-w-md w-full">
-            <div className="text-center mb-6">
-              <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                <span className="text-2xl">⚠️</span>
-              </div>
-              <h2 className="text-2xl font-bold text-slate-800 mb-2">중복된 프로그램 이름</h2>
-              <p className="text-slate-600">이미 존재하는 프로그램 이름입니다</p>
-            </div>
-
-            <div className="mb-6 bg-red-50 rounded-lg p-4 border border-red-200">
-              <div className="text-center">
-                <p className="text-sm text-slate-600 mb-2">중복된 이름</p>
-                <p className="font-semibold text-slate-800 text-lg">"{duplicateTitle}"</p>
-              </div>
-            </div>
-
-            <p className="text-sm text-slate-600 text-center mb-6">
-              다른 이름을 사용해주세요
-            </p>
-
-            <button
-              onClick={() => {
-                setShowDuplicateModal(false);
-                setDuplicateTitle("");
-              }}
-              className="w-full px-4 py-3 bg-blue-600 text-white rounded-xl font-medium hover:bg-blue-700 transition-colors"
-            >
-              확인
+              프로그램 목록으로
             </button>
           </div>
         </div>

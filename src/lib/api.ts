@@ -8,9 +8,11 @@ export type ProgramWithExercises = Program & {
 
 // 모든 프로그램 가져오기
 export async function getPrograms(): Promise<ProgramWithExercises[]> {
+  // 소프트 삭제: is_archived가 false인 프로그램만 조회
   const { data: programs, error: programsError } = await supabase
     .from('programs')
     .select('*')
+    .eq('is_archived', false)
     .order('created_at', { ascending: true });
 
   if (programsError) {
@@ -39,10 +41,12 @@ export async function getPrograms(): Promise<ProgramWithExercises[]> {
 
 // ID로 특정 프로그램과 운동 목록 가져오기
 export async function getProgramById(id: string): Promise<ProgramWithExercises | null> {
+  // 소프트 삭제: is_archived가 false인 프로그램만 조회
   const { data: program, error: programError } = await supabase
     .from('programs')
     .select('*')
     .eq('id', id)
+    .eq('is_archived', false)
     .single();
 
   if (programError || !program) {
