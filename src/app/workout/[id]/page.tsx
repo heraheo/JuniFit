@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft, ChevronDown, ChevronRight, Check, Timer, Lock } from "lucide-react";
+import { ArrowLeft, Check, Timer, Lock } from "lucide-react";
 import { getProgramById, createWorkoutSession, saveWorkoutSet, completeWorkoutSession } from "@/lib/api";
 import type { ProgramWithExercises } from "@/lib/api";
 
@@ -377,14 +377,6 @@ export default function WorkoutDetailPage({ params }: Props) {
                           )}
                         </div>
                       </div>
-                    </div>
-                    
-                    <div>
-                      {isCurrent ? (
-                        <ChevronDown className="w-5 h-5 text-blue-500" />
-                      ) : (
-                        <ChevronRight className="w-5 h-5 text-slate-300" />
-                      )}
                     </div>
                   </div>
                 </div>
