@@ -40,7 +40,7 @@ export default function WorkoutPage() {
             <p className="text-slate-600">등록된 프로그램이 없습니다.</p>
           </div>
         ) : (
-          <section className="flex flex-col gap-8">
+          <section className="flex flex-col gap-6">
             {programs.map((program) => (
               <Link key={program.id} href={`/workout/${program.id}`}>
                 <div className="bg-white rounded-xl shadow-md p-8 hover:shadow-lg transition-all duration-200 cursor-pointer border border-gray-100">
