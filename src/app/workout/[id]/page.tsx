@@ -7,6 +7,11 @@ import { ArrowLeft, ChevronDown, ChevronRight } from "lucide-react";
 import { getProgramById, createWorkoutSession, saveWorkoutSet, completeWorkoutSession } from "@/lib/api";
 import type { ProgramWithExercises } from "@/lib/api";
 
+// 동적 라우트를 위한 params 타입 정의
+type Props = {
+  params: Promise<{ id: string }>;
+};
+
 type SetInput = {
   weight: string;
   reps: string;
@@ -21,7 +26,7 @@ type InputErrors = {
   };
 };
 
-export default function WorkoutDetailPage({ params }: { params: { id: string } }) {
+export default function WorkoutDetailPage({ params }: Props) {
   const router = useRouter();
   const [program, setProgram] = useState<ProgramWithExercises | null>(null);
   const [loading, setLoading] = useState(true);
@@ -42,7 +47,8 @@ export default function WorkoutDetailPage({ params }: { params: { id: string } }
 
   useEffect(() => {
     async function fetchProgram() {
-      const data = await getProgramById(params.id);
+      const resolvedParams = await params;
+      const data = await getProgramById(resolvedParams.id);
       setProgram(data);
       
       if (data) {
@@ -69,7 +75,7 @@ export default function WorkoutDetailPage({ params }: { params: { id: string } }
       setLoading(false);
     }
     fetchProgram();
-  }, [params.id]);
+  }, [params]);
 
   if (!program) {
     return (
