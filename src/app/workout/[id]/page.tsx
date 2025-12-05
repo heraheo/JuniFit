@@ -138,22 +138,26 @@ export default function WorkoutDetailPage({ params }: Props) {
     
     try {
       if (sessionId) {
+        // 프로그램의 모든 운동과 세트를 저장 (입력 안 한 것은 0으로 저장)
         for (const exercise of program.exercises) {
           const inputs = exerciseInputs[exercise.id] || [];
-          for (let i = 0; i < inputs.length; i++) {
+          // target_sets만큼 모든 세트를 저장
+          for (let i = 0; i < exercise.target_sets; i++) {
             const set = inputs[i];
-            if (set.weight.trim() !== '' && set.reps.trim() !== '') {
-              const result = await saveWorkoutSet(
-                sessionId,
-                exercise.name,
-                i + 1,
-                parseFloat(set.weight),
-                parseInt(set.reps)
-              );
-              
-              if (!result) {
-                throw new Error(`${exercise.name} ${i + 1}세트 저장 실패`);
-              }
+            // 입력값이 있으면 그대로, 없으면 0으로 저장
+            const weight = set?.weight.trim() !== '' ? parseFloat(set.weight) : 0;
+            const reps = set?.reps.trim() !== '' ? parseInt(set.reps) : 0;
+            
+            const result = await saveWorkoutSet(
+              sessionId,
+              exercise.name,
+              i + 1,
+              weight,
+              reps
+            );
+            
+            if (!result) {
+              throw new Error(`${exercise.name} ${i + 1}세트 저장 실패`);
             }
           }
         }

@@ -246,3 +246,157 @@ export async function getDashboardData() {
     currentMonth,
   };
 }
+
+// 특정 운동 기록 조회 (ID로)
+export async function getWorkoutLogById(sessionId: string) {
+  // 세션 조회
+  const { data: session, error: sessionError } = await supabase
+    .from('workout_sessions')
+    .select('*')
+    .eq('id', sessionId)
+    .single();
+
+  if (sessionError || !session) {
+    console.error('Error fetching workout session:', sessionError);
+    return null;
+  }
+
+  // 세트 조회
+  const { data: sets, error: setsError } = await supabase
+    .from('workout_sets')
+    .select('*')
+    .eq('session_id', sessionId)
+    .order('created_at', { ascending: true });
+
+  if (setsError) {
+    console.error('Error fetching workout sets:', setsError);
+  }
+
+  // 프로그램 제목 및 운동 목록 조회
+  let programTitle = undefined;
+  let programExercises: ProgramExercise[] = [];
+  if (session.program_id) {
+    console.log('[API] Fetching program for program_id:', session.program_id);
+    
+    const { data: program, error: programError } = await supabase
+      .from('programs')
+      .select('title')
+      .eq('id', session.program_id)
+      .single();
+    
+    if (programError) {
+      console.error('[API] Error fetching program:', programError);
+    }
+    
+    if (program) {
+      programTitle = program.title;
+      console.log('[API] Program title:', programTitle);
+    }
+
+    // 프로그램의 운동 목록 조회
+    const { data: exercises, error: exercisesError } = await supabase
+      .from('program_exercises')
+      .select('*')
+      .eq('program_id', session.program_id)
+      .order('order', { ascending: true });
+    
+    if (exercisesError) {
+      console.error('[API] Error fetching program exercises:', exercisesError);
+    }
+    
+    if (exercises) {
+      programExercises = exercises;
+      console.log('[API] Program exercises loaded:', exercises.length, 'exercises');
+      console.log('[API] Exercises:', exercises.map(e => `${e.name} (${e.target_sets} sets)`));
+    } else {
+      console.warn('[API] No exercises found for program_id:', session.program_id);
+    }
+  } else {
+    console.warn('[API] No program_id in session');
+  }
+
+  console.log('[API] Returning workout log with:', {
+    sessionId: session.id,
+    programId: session.program_id,
+    programTitle,
+    exercisesCount: programExercises.length,
+    setsCount: sets?.length || 0
+  });
+
+  return {
+    ...session,
+    sets: sets || [],
+    programTitle,
+    programExercises,
+  };
+}
+
+// 운동 세션 삭제 (Hard Delete)
+export async function deleteWorkoutSession(sessionId: string) {
+  // 먼저 세트 삭제
+  const { error: setsError } = await supabase
+    .from('workout_sets')
+    .delete()
+    .eq('session_id', sessionId);
+
+  if (setsError) {
+    console.error('Error deleting workout sets:', setsError);
+    return false;
+  }
+
+  // 세션 삭제
+  const { error: sessionError } = await supabase
+    .from('workout_sessions')
+    .delete()
+    .eq('id', sessionId);
+
+  if (sessionError) {
+    console.error('Error deleting workout session:', sessionError);
+    return false;
+  }
+
+  return true;
+}
+
+// 운동 세트 수정
+export async function updateWorkoutSet(
+  setId: string,
+  weight: number,
+  reps: number,
+  rpe?: number
+) {
+  const { data, error } = await supabase
+    .from('workout_sets')
+    .update({
+      weight,
+      reps,
+      rpe,
+    })
+    .eq('id', setId)
+    .select()
+    .single();
+
+  if (error) {
+    console.error('Error updating workout set:', error);
+    return null;
+  }
+
+  return data;
+}
+
+// 세션 노트 수정
+export async function updateSessionNote(sessionId: string, note: string) {
+  const { data, error } = await supabase
+    .from('workout_sessions')
+    .update({ note })
+    .eq('id', sessionId)
+    .select()
+    .single();
+
+  if (error) {
+    console.error('Error updating session note:', error);
+    return null;
+  }
+
+  return data;
+}
