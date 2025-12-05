@@ -61,7 +61,7 @@ export default function WorkoutLogDetailPage({
       setLog(data);
       if (data) {
         // 모든 세트를 표시 (weight와 reps가 0인 것은 미완료로 표시)
-        const allSets: EditableSet[] = data.sets.map((set) => {
+        const allSets: EditableSet[] = data.sets.map((set: WorkoutSet) => {
           const isIncomplete = set.weight === 0 && set.reps === 0;
           return {
             id: set.id,
