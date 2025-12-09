@@ -168,6 +168,7 @@ export default function Page() {
       const { data: programData, error: programError } = await supabase
         .from('programs')
         .insert({
+          user_id: user.id,
           title: title.trim(),
           description: description.trim(),
         })
@@ -193,6 +194,7 @@ export default function Page() {
         })
         .map((ex, index) => ({
           program_id: programId,
+          user_id: user.id,
           name: ex.name.trim(),
           target_sets: Number(ex.target.sets),
           target_reps: Number(ex.target.reps.min),

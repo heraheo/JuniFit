@@ -237,6 +237,7 @@ export default function ProgramEditPage() {
         })
         .map((ex, index) => ({
           program_id: programId,
+          user_id: user.id,
           name: ex.name.trim(),
           target_sets: Number(ex.target.sets),
           target_reps: Number(ex.target.reps.min),
