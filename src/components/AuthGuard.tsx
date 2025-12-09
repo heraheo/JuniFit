@@ -29,14 +29,14 @@ export default function AuthGuard({ children }: { children: React.ReactNode }) {
       addDebug(`시작 - 경로: ${pathname}`);
       
       try {
-        // 공개 페이지 체크
-        const publicPaths = ['/login', '/auth/callback'];
-        const isPublicPath = publicPaths.some(path => pathname?.startsWith(path));
+        // auth/callback만 완전 공개 페이지
+        const isAuthCallback = pathname?.startsWith('/auth/callback');
+        const isLoginPath = pathname === '/login';
         const isOnboardingPath = pathname === '/onboarding';
 
-        // 공개 페이지는 바로 로딩 종료
-        if (isPublicPath) {
-          addDebug('공개 페이지 - 로딩 종료');
+        // auth/callback은 바로 로딩 종료
+        if (isAuthCallback) {
+          addDebug('콜백 페이지 - 로딩 종료');
           if (isMounted) setIsLoading(false);
           isChecking = false;
           return;
@@ -58,8 +58,12 @@ export default function AuthGuard({ children }: { children: React.ReactNode }) {
         
         // 2. 비로그인 상태 처리
         if (!session) {
-          addDebug('/login으로 이동');
-          router.push('/login');
+          if (!isLoginPath) {
+            addDebug('/login으로 이동');
+            router.push('/login');
+          } else {
+            addDebug('이미 로그인 페이지');
+          }
           if (isMounted) setIsLoading(false);
           isChecking = false;
           return;
@@ -100,7 +104,7 @@ export default function AuthGuard({ children }: { children: React.ReactNode }) {
         }
 
         // 5. 닉네임이 있는 경우 (완료된 유저)
-        if (pathname === '/login' || pathname === '/onboarding') {
+        if (isLoginPath || isOnboardingPath) {
           addDebug('메인으로 이동');
           router.push('/');
         }
