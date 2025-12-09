@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { ArrowLeft, Trash2, Edit, ChevronDown, ChevronRight, Dumbbell } from "lucide-react";
-import { supabase } from "@/lib/supabase";
+import { createClient } from "@/lib/supabase/client";
 import type { Program, ProgramExercise } from "@/types/database";
 
 type ProgramWithExercises = Program & {
@@ -23,6 +23,7 @@ export default function ProgramsManagePage() {
 
   async function fetchPrograms() {
     setLoading(true);
+    const supabase = createClient();
     // 소프트 삭제: is_archived가 false인 항목만 조회
     const { data, error } = await supabase
       .from('programs')
@@ -57,6 +58,7 @@ export default function ProgramsManagePage() {
     setLoadingExercises(programId);
     setExpandedProgram(programId);
 
+    const supabase = createClient();
     const { data: exercises, error } = await supabase
       .from('program_exercises')
       .select('*')
@@ -82,6 +84,7 @@ export default function ProgramsManagePage() {
     setDeleting(program.id);
 
     try {
+      const supabase = createClient();
       // 소프트 삭제: 실제 데이터를 삭제하지 않고 is_archived 플래그만 true로 변경
       // 이렇게 하면 workout_sessions에 연결된 운동 기록이 보존됨
       const { error } = await supabase

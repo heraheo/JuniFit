@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { useRouter, useParams } from "next/navigation";
 import { Trash, ArrowLeft } from "lucide-react";
-import { supabase } from "@/lib/supabase";
+import { createClient } from "@/lib/supabase/client";
 import type { Program, ProgramExercise } from "@/types/database";
 
 type ExerciseInput = {
@@ -37,6 +37,7 @@ export default function ProgramEditPage() {
   const fetchProgram = useCallback(async () => {
     setLoading(true);
     try {
+      const supabase = createClient();
       // 프로그램 정보 가져오기
       const { data: program, error: programError } = await supabase
         .from('programs')
@@ -196,6 +197,7 @@ export default function ProgramEditPage() {
     setIsSaving(true);
 
     try {
+      const supabase = createClient();
       // 인증 확인
       const { data: { user }, error: authError } = await supabase.auth.getUser();
       if (authError || !user) {

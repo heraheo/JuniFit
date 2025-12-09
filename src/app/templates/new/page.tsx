@@ -4,7 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Trash, ArrowLeft } from "lucide-react";
-import { supabase } from "@/lib/supabase";
+import { createClient } from "@/lib/supabase/client";
 
 type ExerciseInput = {
   id: string;
@@ -141,6 +141,7 @@ export default function Page() {
     setIsSaving(true);
 
     try {
+      const supabase = createClient();
       // 인증 확인
       const { data: { user }, error: authError } = await supabase.auth.getUser();
       if (authError || !user) {
