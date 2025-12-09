@@ -17,8 +17,15 @@ export default function AuthGuard({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     let isMounted = true;
+    let isChecking = false;
 
     const checkAuth = async () => {
+      if (isChecking) {
+        addDebug('이미 체크 중 - 스킵');
+        return;
+      }
+      
+      isChecking = true;
       addDebug(`시작 - 경로: ${pathname}`);
       
       try {
@@ -31,47 +38,53 @@ export default function AuthGuard({ children }: { children: React.ReactNode }) {
         if (isPublicPath) {
           addDebug('공개 페이지 - 로딩 종료');
           if (isMounted) setIsLoading(false);
+          isChecking = false;
           return;
         }
 
         // 1. 세션 확인
         addDebug('세션 확인 중...');
         const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+        addDebug('세션 확인 완료');
         
         if (sessionError) {
           addDebug(`세션 오류: ${sessionError.message}`);
           if (isMounted) setIsLoading(false);
+          isChecking = false;
           return;
         }
 
-        addDebug(session ? '세션 있음' : '세션 없음');
+        addDebug(session ? `세션 있음 (ID: ${session.user.id.slice(0, 8)})` : '세션 없음');
         
         // 2. 비로그인 상태 처리
         if (!session) {
           addDebug('/login으로 이동');
           router.push('/login');
           if (isMounted) setIsLoading(false);
+          isChecking = false;
           return;
         }
 
         // 3. 로그인 상태 - 프로필 확인
-        addDebug(`프로필 조회 중... userId: ${session.user.id.slice(0, 8)}`);
+        addDebug('프로필 조회 시작');
         const { data: profile, error: profileError } = await supabase
           .from('profiles')
           .select('nickname')
           .eq('id', session.user.id)
           .maybeSingle();
 
-        addDebug(`프로필 결과: ${profile ? JSON.stringify(profile) : 'null'}`);
+        addDebug('프로필 조회 완료');
+        addDebug(`프로필: ${profile ? JSON.stringify(profile) : 'null'}`);
         
         if (profileError) {
           addDebug(`프로필 오류: ${profileError.message}`);
           if (isMounted) setIsLoading(false);
+          isChecking = false;
           return;
         }
 
         const hasNickname = profile?.nickname && profile.nickname.trim() !== '';
-        addDebug(`닉네임 있음: ${hasNickname}`);
+        addDebug(`닉네임 체크: ${hasNickname} (값: ${profile?.nickname || 'null'})`);
 
         // 4. 닉네임이 없는 경우 (미완료 유저)
         if (!hasNickname) {
@@ -82,6 +95,7 @@ export default function AuthGuard({ children }: { children: React.ReactNode }) {
             addDebug('이미 온보딩 페이지');
           }
           if (isMounted) setIsLoading(false);
+          isChecking = false;
           return;
         }
 
@@ -93,38 +107,36 @@ export default function AuthGuard({ children }: { children: React.ReactNode }) {
 
         addDebug('로딩 종료');
         if (isMounted) setIsLoading(false);
+        isChecking = false;
         
       } catch (error) {
         const errMsg = error instanceof Error ? error.message : String(error);
         addDebug(`예외: ${errMsg}`);
         if (isMounted) setIsLoading(false);
+        isChecking = false;
       }
     };
 
+    // 초기 체크
     checkAuth();
 
-    // 인증 상태 변경 감지
+    // 인증 상태 변경 감지 (초기 SIGNED_IN 이벤트는 무시)
+    let initialEventFired = false;
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      // 첫 SIGNED_IN 이벤트는 무시 (초기 로드 시 발생)
+      if (!initialEventFired && event === 'SIGNED_IN') {
+        initialEventFired = true;
+        addDebug('초기 SIGNED_IN 이벤트 무시');
+        return;
+      }
+      
       addDebug(`인증 이벤트: ${event}`);
       
       if (event === 'SIGNED_OUT') {
         router.push('/login');
       } else if (event === 'SIGNED_IN') {
-        if (session) {
-          const { data: profile } = await supabase
-            .from('profiles')
-            .select('nickname')
-            .eq('id', session.user.id)
-            .maybeSingle();
-
-          const hasNickname = profile?.nickname && profile.nickname.trim() !== '';
-          
-          if (!hasNickname) {
-            router.push('/onboarding');
-          } else if (pathname === '/login' || pathname === '/onboarding') {
-            router.push('/');
-          }
-        }
+        // 실제 로그인 이벤트
+        checkAuth();
       }
     });
 
