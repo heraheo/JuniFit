@@ -51,7 +51,6 @@ export default function OnboardingPage() {
           id: userId,
           nickname: nickname.trim(),
           avatar_url: avatarUrl,
-          updated_at: new Date().toISOString(),
         });
 
       if (error) {
