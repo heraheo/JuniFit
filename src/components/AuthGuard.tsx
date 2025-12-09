@@ -10,23 +10,20 @@ export default function AuthGuard({ children }: { children: React.ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
   const supabase = createClient();
 
-  // 인증이 필요 없는 공개 페이지들
-  const publicPaths = ['/login', '/auth/callback'];
-  const isPublicPath = publicPaths.some(path => pathname?.startsWith(path));
-  
-  // 온보딩 페이지 여부
-  const isOnboardingPath = pathname === '/onboarding';
-
   useEffect(() => {
     const checkAuth = async () => {
       try {
+        // 공개 페이지 체크
+        const publicPaths = ['/login', '/auth/callback'];
+        const isPublicPath = publicPaths.some(path => pathname?.startsWith(path));
+        const isOnboardingPath = pathname === '/onboarding';
+
         // 1. 세션 확인
         const { data: { session } } = await supabase.auth.getSession();
         
         // 2. 비로그인 상태 처리
         if (!session) {
           if (!isPublicPath) {
-            // 로그인되지 않았고, 공개 페이지가 아니면 로그인 페이지로
             router.push('/login');
           }
           setIsLoading(false);
@@ -41,7 +38,6 @@ export default function AuthGuard({ children }: { children: React.ReactNode }) {
           .single();
 
         if (profileError && profileError.code !== 'PGRST116') {
-          // PGRST116은 "행을 찾을 수 없음" 에러 (정상 케이스)
           console.error('프로필 조회 오류:', profileError);
         }
 
@@ -49,8 +45,7 @@ export default function AuthGuard({ children }: { children: React.ReactNode }) {
 
         // 4. 닉네임이 없는 경우 (미완료 유저)
         if (!hasNickname) {
-          if (!isOnboardingPath && !isPublicPath) {
-            // 온보딩 페이지가 아니면 온보딩으로 이동
+          if (!isOnboardingPath) {
             router.push('/onboarding');
           }
           setIsLoading(false);
@@ -58,11 +53,8 @@ export default function AuthGuard({ children }: { children: React.ReactNode }) {
         }
 
         // 5. 닉네임이 있는 경우 (완료된 유저)
-        if (hasNickname) {
-          if (pathname === '/login' || pathname === '/onboarding') {
-            // 로그인/온보딩 페이지 접속 시 메인으로 리다이렉트
-            router.push('/');
-          }
+        if (hasNickname && (pathname === '/login' || pathname === '/onboarding')) {
+          router.push('/');
         }
 
         setIsLoading(false);
@@ -80,7 +72,6 @@ export default function AuthGuard({ children }: { children: React.ReactNode }) {
       if (event === 'SIGNED_OUT') {
         router.push('/login');
       } else if (event === 'SIGNED_IN') {
-        // 로그인 시 프로필 확인
         if (session) {
           const { data: profile } = await supabase
             .from('profiles')
@@ -102,7 +93,7 @@ export default function AuthGuard({ children }: { children: React.ReactNode }) {
     return () => {
       subscription.unsubscribe();
     };
-  }, [pathname, router, isPublicPath, isOnboardingPath]);
+  }, [pathname, router, supabase]);
 
   // 로딩 중 화면
   if (isLoading) {
