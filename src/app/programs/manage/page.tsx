@@ -118,12 +118,19 @@ export default function ProgramsManagePage() {
             <p className="text-slate-600">로딩 중...</p>
           </div>
         ) : programs.length === 0 ? (
-          /* Empty State */
+          /* Empty State - 개선된 UI */
           <div className="bg-white rounded-xl shadow-md p-8 text-center">
-            <p className="text-slate-600 mb-4">등록된 프로그램이 없습니다.</p>
+            <div className="mb-4">
+              <Dumbbell className="w-16 h-16 mx-auto text-slate-300" />
+            </div>
+            <h2 className="text-lg font-semibold text-slate-800 mb-2">등록된 프로그램이 없습니다</h2>
+            <p className="text-slate-600 mb-6">
+              나만의 운동 프로그램을 만들어보세요.<br />
+              체계적인 운동 관리를 시작할 수 있습니다.
+            </p>
             <Link
               href="/templates/new"
-              className="inline-block bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
+              className="inline-block bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-colors font-medium"
             >
               새 프로그램 만들기
             </Link>

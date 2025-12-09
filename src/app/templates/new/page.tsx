@@ -141,6 +141,14 @@ export default function Page() {
     setIsSaving(true);
 
     try {
+      // 인증 확인
+      const { data: { user }, error: authError } = await supabase.auth.getUser();
+      if (authError || !user) {
+        alert("로그인이 필요합니다. 다시 로그인해주세요.");
+        router.push('/login');
+        return;
+      }
+
       // 프로그램 제목 중복 체크
       const { data: existingPrograms, error: checkError } = await supabase
         .from('programs')

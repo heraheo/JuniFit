@@ -196,6 +196,14 @@ export default function ProgramEditPage() {
     setIsSaving(true);
 
     try {
+      // 인증 확인
+      const { data: { user }, error: authError } = await supabase.auth.getUser();
+      if (authError || !user) {
+        alert("로그인이 필요합니다. 다시 로그인해주세요.");
+        router.push('/login');
+        return;
+      }
+
       // 1. 프로그램 정보 업데이트
       const { error: programError } = await supabase
         .from('programs')

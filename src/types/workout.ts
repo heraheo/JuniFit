@@ -1,14 +1,17 @@
 // DB 테이블 타입 정의
 export interface Program {
   id: string;
+  user_id?: string; // RLS에서 자동 설정
   title: string;
   description?: string;
+  is_archived?: boolean;
   created_at: string;
 }
 
 export interface ProgramExercise {
   id: string;
   program_id: string;
+  user_id?: string; // RLS에서 자동 설정
   name: string;
   target_sets: number;
   target_reps: number;
@@ -16,6 +19,27 @@ export interface ProgramExercise {
   intention?: string;
   note?: string;
   order: number;
+}
+
+export interface WorkoutSession {
+  id: string;
+  user_id?: string; // RLS에서 자동 설정
+  program_id?: string;
+  started_at: string;
+  ended_at?: string;
+  note?: string;
+}
+
+export interface WorkoutSet {
+  id: string;
+  session_id: string;
+  user_id?: string; // RLS에서 자동 설정
+  exercise_name: string;
+  set_number: number;
+  weight: number;
+  reps: number;
+  rpe?: number;
+  created_at: string;
 }
 
 // UI에서 사용하는 타입 (기존 호환성 유지)
@@ -33,6 +57,7 @@ export interface ExerciseTemplate {
 
 export interface WorkoutTemplate {
   id: string; // 템플릿 ID (UUID 등)
+  user_id?: string; // RLS에서 자동 설정
   title: string; // 템플릿 제목
   description?: string;
   createdAt?: string; // ISO 날짜 문자열

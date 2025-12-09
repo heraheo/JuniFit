@@ -137,6 +137,14 @@ export default function WorkoutDetailPage({ params }: Props) {
     setIsSaving(true);
     
     try {
+      // 인증 확인 추가
+      const { data: { user }, error: authError } = await import('@/lib/supabase').then(m => m.supabase.auth.getUser());
+      if (authError || !user) {
+        alert("로그인이 필요합니다. 다시 로그인해주세요.");
+        router.push('/login');
+        return;
+      }
+
       if (sessionId) {
         // 프로그램의 모든 운동과 세트를 저장 (입력 안 한 것은 0으로 저장)
         for (const exercise of program.exercises) {
