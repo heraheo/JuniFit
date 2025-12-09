@@ -23,6 +23,27 @@ export async function GET(request: NextRequest) {
     if (!data.session) {
       return NextResponse.redirect(`${origin}/login?error=no_session`);
     }
+
+    // 신규 유저인 경우 profiles 테이블에 행 생성
+    const userId = data.session.user.id;
+    
+    // 기존 프로필 확인
+    const { data: existingProfile } = await supabase
+      .from('profiles')
+      .select('id')
+      .eq('id', userId)
+      .single();
+
+    // 프로필이 없으면 생성
+    if (!existingProfile) {
+      await supabase
+        .from('profiles')
+        .insert({
+          id: userId,
+          nickname: null,
+          avatar_url: null,
+        });
+    }
     
     // 성공 시 메인 페이지로
     return NextResponse.redirect(`${origin}/?login=success`);
