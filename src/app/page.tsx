@@ -32,10 +32,20 @@ export default function Page() {
     if (!confirmed) return;
 
     try {
-      await supabase.auth.signOut();
-      // 로그아웃 후 상태 초기화 및 리다이렉트
+      // 로그아웃 시 모든 scope에서 세션 제거
+      const { error } = await supabase.auth.signOut({ scope: 'global' });
+      
+      if (error) {
+        console.error('로그아웃 오류:', error);
+        alert('로그아웃 중 오류가 발생했습니다.');
+        return;
+      }
+      
+      // 상태 초기화
       setUser(null);
-      window.location.reload();
+      
+      // 강제 페이지 리로드로 모든 상태 초기화
+      window.location.href = '/login';
     } catch (error) {
       console.error('로그아웃 오류:', error);
       alert('로그아웃 중 오류가 발생했습니다.');
