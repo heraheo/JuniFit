@@ -31,8 +31,15 @@ export default function Page() {
     const confirmed = window.confirm('로그아웃 하시겠습니까?');
     if (!confirmed) return;
 
-    await supabase.auth.signOut();
-    window.location.href = '/';
+    try {
+      await supabase.auth.signOut();
+      // 로그아웃 후 상태 초기화 및 리다이렉트
+      setUser(null);
+      window.location.reload();
+    } catch (error) {
+      console.error('로그아웃 오류:', error);
+      alert('로그아웃 중 오류가 발생했습니다.');
+    }
   };
 
   if (isLoading) {
