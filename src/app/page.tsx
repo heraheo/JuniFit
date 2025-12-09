@@ -6,22 +6,56 @@ import { Plus, Play, FolderOpen, History, BarChart3, LogOut } from "lucide-react
 import { createClient } from "@/lib/supabase/client";
 import type { User } from "@supabase/supabase-js";
 
+type Profile = {
+  nickname: string;
+  avatar_url?: string;
+};
+
 export default function Page() {
   const [user, setUser] = useState<User | null>(null);
+  const [profile, setProfile] = useState<Profile | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const supabase = createClient();
 
   useEffect(() => {
-    const getUser = async () => {
+    const getUserAndProfile = async () => {
       const { data: { user } } = await supabase.auth.getUser();
       setUser(user);
+
+      if (user) {
+        // 프로필 정보 가져오기
+        const { data: profileData } = await supabase
+          .from('profiles')
+          .select('nickname, avatar_url')
+          .eq('id', user.id)
+          .single();
+
+        if (profileData) {
+          setProfile(profileData);
+        }
+      }
+
       setIsLoading(false);
     };
 
-    getUser();
+    getUserAndProfile();
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
       setUser(session?.user ?? null);
+      
+      if (session?.user) {
+        const { data: profileData } = await supabase
+          .from('profiles')
+          .select('nickname, avatar_url')
+          .eq('id', session.user.id)
+          .single();
+
+        if (profileData) {
+          setProfile(profileData);
+        }
+      } else {
+        setProfile(null);
+      }
     });
 
     return () => subscription.unsubscribe();
@@ -32,7 +66,6 @@ export default function Page() {
     if (!confirmed) return;
 
     try {
-      // 로그아웃 시 모든 scope에서 세션 제거
       const { error } = await supabase.auth.signOut({ scope: 'global' });
       
       if (error) {
@@ -41,10 +74,8 @@ export default function Page() {
         return;
       }
       
-      // 상태 초기화
       setUser(null);
-      
-      // 강제 페이지 리로드로 모든 상태 초기화
+      setProfile(null);
       window.location.href = '/login';
     } catch (error) {
       console.error('로그아웃 오류:', error);
@@ -63,42 +94,38 @@ export default function Page() {
   return (
     <main className="min-h-screen flex flex-col items-center justify-center py-12 px-4">
       <div className="w-full max-w-md">
-        {/* 헤더 - 로그인 상태 표시 */}
-        <div className="mb-8 text-center">
-          <h1 className="text-3xl font-bold mb-4">JuniFit</h1>
-          
-          {user ? (
-            <div className="bg-green-50 border border-green-200 rounded-xl p-4">
-              <p className="text-green-800 font-medium mb-2">
-                ✅ 로그인 되었습니다!
-              </p>
-              <p className="text-sm text-green-600 mb-3">
-                User ID: {user.id.slice(0, 8)}...
-              </p>
+        {/* 사용자 프로필 헤더 */}
+        {user && profile && (
+          <div className="mb-8 bg-gradient-to-r from-blue-500 to-purple-600 rounded-2xl shadow-xl p-6 text-white">
+            <div className="flex items-center gap-4">
+              {/* 아바타 */}
+              <div className="w-16 h-16 rounded-full overflow-hidden border-4 border-white shadow-lg bg-white flex-shrink-0">
+                <img 
+                  src={profile.avatar_url || `https://api.dicebear.com/9.x/notionists/svg?seed=${profile.nickname}`}
+                  alt={profile.nickname}
+                  className="w-full h-full object-cover"
+                />
+              </div>
+
+              {/* 닉네임과 환영 메시지 */}
+              <div className="flex-1 min-w-0">
+                <p className="text-sm opacity-90 mb-1">환영합니다!</p>
+                <h2 className="text-2xl font-bold truncate">{profile.nickname}님</h2>
+              </div>
+
+              {/* 로그아웃 버튼 */}
               <button
                 onClick={handleLogout}
-                className="inline-flex items-center gap-2 px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-lg text-sm font-medium transition-colors"
+                className="p-2 bg-white/20 hover:bg-white/30 rounded-lg transition-colors"
+                title="로그아웃"
               >
-                <LogOut className="w-4 h-4" />
-                로그아웃
+                <LogOut className="w-5 h-5" />
               </button>
             </div>
-          ) : (
-            <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
-              <p className="text-blue-800 font-medium mb-3">
-                로그인이 필요합니다
-              </p>
-              <Link
-                href="/login"
-                className="inline-block px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors"
-              >
-                로그인 하러 가기
-              </Link>
-            </div>
-          )}
-        </div>
+          </div>
+        )}
 
-        {/* 기존 메뉴들 */}
+        {/* 메인 액션 버튼들 */}
         <div className="w-full flex gap-6 mb-6">
           <Link
             href="/templates/new"
@@ -119,10 +146,19 @@ export default function Page() {
           </Link>
         </div>
 
+        {/* 대시보드 버튼 */}
+        <Link
+          href="/dashboard"
+          className="w-full bg-gradient-to-r from-green-500 to-green-600 rounded-xl shadow-md p-4 flex items-center justify-center gap-3 hover:shadow-lg transition-shadow text-white mb-3"
+        >
+          <BarChart3 className="w-5 h-5" />
+          <span className="text-base font-medium">나의 운동 대시보드</span>
+        </Link>
+
         {/* 프로그램 관리 버튼 */}
         <Link
           href="/programs/manage"
-          className="w-full bg-white rounded-xl shadow-md p-4 flex items-center justify-center gap-3 hover:shadow-lg transition-shadow border border-gray-100"
+          className="w-full bg-white rounded-xl shadow-md p-4 flex items-center justify-center gap-3 hover:shadow-lg transition-shadow border border-gray-100 mb-3"
         >
           <FolderOpen className="w-5 h-5 text-blue-600" />
           <span className="text-base font-medium text-slate-800">저장된 프로그램 목록 관리</span>
@@ -131,19 +167,10 @@ export default function Page() {
         {/* 운동 기록 보기 버튼 */}
         <Link
           href="/history"
-          className="w-full mt-3 bg-white rounded-xl shadow-md p-4 flex items-center justify-center gap-3 hover:shadow-lg transition-shadow border border-gray-100"
+          className="w-full bg-white rounded-xl shadow-md p-4 flex items-center justify-center gap-3 hover:shadow-lg transition-shadow border border-gray-100"
         >
           <History className="w-5 h-5 text-green-600" />
           <span className="text-base font-medium text-slate-800">지난 운동 기록 보기</span>
-        </Link>
-
-        {/* 대시보드 버튼 */}
-        <Link
-          href="/dashboard"
-          className="w-full mt-3 bg-gradient-to-r from-green-500 to-green-600 rounded-xl shadow-md p-4 flex items-center justify-center gap-3 hover:shadow-lg transition-shadow text-white"
-        >
-          <BarChart3 className="w-5 h-5" />
-          <span className="text-base font-medium">나의 운동 대시보드</span>
         </Link>
       </div>
     </main>

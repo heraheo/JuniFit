@@ -2,264 +2,177 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { ArrowLeft, Calendar, Dumbbell, TrendingUp, CheckCircle } from "lucide-react";
-import { getDashboardData } from "@/lib/api";
+import { Plus, Play, FolderOpen, History, BarChart3, LogOut } from "lucide-react";
+import { createClient } from "@/lib/supabase/client";
+import type { User } from "@supabase/supabase-js";
 
-type DashboardData = {
-  totalSessions: number;
-  thisMonthCount: number;
-  monthlyWorkoutDates: number[];
-  totalVolume: number;
-  currentYear: number;
-  currentMonth: number;
+type Profile = {
+  nickname: string;
+  avatar_url?: string;
 };
 
-export default function DashboardPage() {
-  const [data, setData] = useState<DashboardData | null>(null);
-  const [loading, setLoading] = useState(true);
+export default function Page() {
+  const [user, setUser] = useState<User | null>(null);
+  const [profile, setProfile] = useState<Profile | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const supabase = createClient();
 
   useEffect(() => {
-    async function fetchData() {
-      const result = await getDashboardData();
-      setData(result);
-      setLoading(false);
-    }
-    fetchData();
+    const getUserAndProfile = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      setUser(user);
+
+      if (user) {
+        // 프로필 정보 가져오기
+        const { data: profileData } = await supabase
+          .from('profiles')
+          .select('nickname, avatar_url')
+          .eq('id', user.id)
+          .single();
+
+        if (profileData) {
+          setProfile(profileData);
+        }
+      }
+
+      setIsLoading(false);
+    };
+
+    getUserAndProfile();
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
+      setUser(session?.user ?? null);
+      
+      if (session?.user) {
+        const { data: profileData } = await supabase
+          .from('profiles')
+          .select('nickname, avatar_url')
+          .eq('id', session.user.id)
+          .single();
+
+        if (profileData) {
+          setProfile(profileData);
+        }
+      } else {
+        setProfile(null);
+      }
+    });
+
+    return () => subscription.unsubscribe();
   }, []);
 
-  // 달력 생성 함수
-  const generateCalendarDays = (year: number, month: number) => {
-    const firstDay = new Date(year, month, 1);
-    const lastDay = new Date(year, month + 1, 0);
-    const daysInMonth = lastDay.getDate();
-    const startDayOfWeek = firstDay.getDay(); // 0 = 일요일
+  const handleLogout = async () => {
+    const confirmed = window.confirm('로그아웃 하시겠습니까?');
+    if (!confirmed) return;
 
-    const days: (number | null)[] = [];
-
-    // 첫 주 빈칸 채우기
-    for (let i = 0; i < startDayOfWeek; i++) {
-      days.push(null);
+    try {
+      const { error } = await supabase.auth.signOut({ scope: 'global' });
+      
+      if (error) {
+        console.error('로그아웃 오류:', error);
+        alert('로그아웃 중 오류가 발생했습니다.');
+        return;
+      }
+      
+      setUser(null);
+      setProfile(null);
+      window.location.href = '/login';
+    } catch (error) {
+      console.error('로그아웃 오류:', error);
+      alert('로그아웃 중 오류가 발생했습니다.');
     }
-
-    // 날짜 채우기
-    for (let day = 1; day <= daysInMonth; day++) {
-      days.push(day);
-    }
-
-    return days;
   };
 
-  // 숫자 포맷팅 (천 단위 콤마)
-  const formatNumber = (num: number) => {
-    return num.toLocaleString("ko-KR");
-  };
-
-  // 월 이름 가져오기
-  const getMonthName = (month: number) => {
-    const months = [
-      "1월", "2월", "3월", "4월", "5월", "6월",
-      "7월", "8월", "9월", "10월", "11월", "12월"
-    ];
-    return months[month];
-  };
-
-  const today = new Date();
-  const todayDate = today.getDate();
-  const isCurrentMonth = data
-    ? today.getFullYear() === data.currentYear && today.getMonth() === data.currentMonth
-    : false;
-
-  if (loading) {
+  if (isLoading) {
     return (
-      <div className="min-h-screen px-4 pt-6 pb-8 bg-gray-50">
-        <div className="max-w-md mx-auto">
-          <header className="flex items-center mb-6">
-            <Link href="/" className="text-slate-600 mr-4">
-              <ArrowLeft className="w-6 h-6" />
-            </Link>
-            <h1 className="text-xl font-bold">나의 운동 대시보드</h1>
-          </header>
-          <div className="text-center py-12">
-            <p className="text-slate-600">로딩 중...</p>
-          </div>
-        </div>
+      <div className="min-h-screen flex items-center justify-center">
+        <p className="text-slate-600">로딩 중...</p>
       </div>
     );
   }
-
-  if (!data) {
-    return (
-      <div className="min-h-screen px-4 pt-6 pb-8 bg-gray-50">
-        <div className="max-w-md mx-auto">
-          <header className="flex items-center mb-6">
-            <Link href="/" className="text-slate-600 mr-4">
-              <ArrowLeft className="w-6 h-6" />
-            </Link>
-            <h1 className="text-xl font-bold">나의 운동 대시보드</h1>
-          </header>
-          <div className="text-center py-12 bg-white rounded-xl shadow-md">
-            <p className="text-slate-600">데이터를 불러오는데 실패했습니다.</p>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  const calendarDays = generateCalendarDays(data.currentYear, data.currentMonth);
-  const workoutDatesSet = new Set(data.monthlyWorkoutDates);
 
   return (
-    <div className="min-h-screen px-4 pt-6 pb-8 bg-gray-50">
-      <div className="max-w-md mx-auto">
-        {/* Header */}
-        <header className="flex items-center mb-6">
-          <Link href="/" className="text-slate-600 mr-4">
-            <ArrowLeft className="w-6 h-6" />
-          </Link>
-          <div>
-            <h1 className="text-xl font-bold">나의 운동 대시보드</h1>
-            <p className="text-sm text-slate-600">꾸준함이 실력이 됩니다 💪</p>
-          </div>
-        </header>
-
-        {/* 요약 통계 카드 */}
-        <section className="grid grid-cols-3 gap-3 mb-6">
-          {/* 이번 달 운동 횟수 */}
-          <div className="bg-gradient-to-br from-green-500 to-green-600 rounded-xl p-4 text-white shadow-lg">
-            <div className="flex items-center justify-center w-10 h-10 bg-white/20 rounded-full mb-2">
-              <CheckCircle className="w-5 h-5" />
-            </div>
-            <p className="text-2xl font-bold">{data.thisMonthCount}회</p>
-            <p className="text-xs text-green-100 mt-1">이번 달 출석</p>
-          </div>
-
-          {/* 총 누적 운동 횟수 */}
-          <div className="bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl p-4 text-white shadow-lg">
-            <div className="flex items-center justify-center w-10 h-10 bg-white/20 rounded-full mb-2">
-              <Calendar className="w-5 h-5" />
-            </div>
-            <p className="text-2xl font-bold">{data.totalSessions}회</p>
-            <p className="text-xs text-blue-100 mt-1">총 운동 완료</p>
-          </div>
-
-          {/* 총 누적 볼륨 */}
-          <div className="bg-gradient-to-br from-purple-500 to-purple-600 rounded-xl p-4 text-white shadow-lg">
-            <div className="flex items-center justify-center w-10 h-10 bg-white/20 rounded-full mb-2">
-              <TrendingUp className="w-5 h-5" />
-            </div>
-            <p className="text-lg font-bold">
-              {data.totalVolume >= 1000
-                ? `${formatNumber(Math.round(data.totalVolume / 1000))}t`
-                : `${formatNumber(data.totalVolume)}kg`}
-            </p>
-            <p className="text-xs text-purple-100 mt-1">누적 볼륨</p>
-          </div>
-        </section>
-
-        {/* 이번 달 운동 달력 */}
-        <section className="bg-white rounded-xl shadow-md p-5">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-semibold text-slate-800">
-              {data.currentYear}년 {getMonthName(data.currentMonth)} 출석 현황
-            </h2>
-            <div className="flex items-center gap-2">
-              <div className="w-3 h-3 bg-green-500 rounded-full"></div>
-              <span className="text-xs text-slate-600">운동 완료</span>
-            </div>
-          </div>
-
-          {/* 요일 헤더 */}
-          <div className="grid grid-cols-7 gap-1 mb-2">
-            {["일", "월", "화", "수", "목", "금", "토"].map((day, index) => (
-              <div
-                key={day}
-                className={`text-center text-xs font-medium py-2 ${
-                  index === 0 ? "text-red-500" : index === 6 ? "text-blue-500" : "text-slate-500"
-                }`}
-              >
-                {day}
+    <main className="min-h-screen flex flex-col items-center justify-center py-12 px-4">
+      <div className="w-full max-w-md">
+        {/* 사용자 프로필 헤더 */}
+        {user && profile && (
+          <div className="mb-8 bg-gradient-to-r from-blue-500 to-purple-600 rounded-2xl shadow-xl p-6 text-white">
+            <div className="flex items-center gap-4">
+              {/* 아바타 */}
+              <div className="w-16 h-16 rounded-full overflow-hidden border-4 border-white shadow-lg bg-white flex-shrink-0">
+                <img 
+                  src={profile.avatar_url || `https://api.dicebear.com/9.x/notionists/svg?seed=${profile.nickname}`}
+                  alt={profile.nickname}
+                  className="w-full h-full object-cover"
+                />
               </div>
-            ))}
-          </div>
 
-          {/* 날짜 그리드 */}
-          <div className="grid grid-cols-7 gap-1">
-            {calendarDays.map((day, index) => {
-              if (day === null) {
-                return <div key={`empty-${index}`} className="aspect-square"></div>;
-              }
+              {/* 닉네임과 환영 메시지 */}
+              <div className="flex-1 min-w-0">
+                <p className="text-sm opacity-90 mb-1">환영합니다!</p>
+                <h2 className="text-2xl font-bold truncate">{profile.nickname}님</h2>
+              </div>
 
-              const isWorkoutDay = workoutDatesSet.has(day);
-              const isToday = isCurrentMonth && day === todayDate;
-              const dayOfWeek = (index % 7);
-              const isSunday = dayOfWeek === 0;
-              const isSaturday = dayOfWeek === 6;
-
-              return (
-                <div
-                  key={day}
-                  className={`aspect-square flex items-center justify-center rounded-lg text-sm font-medium transition-all ${
-                    isWorkoutDay
-                      ? "bg-green-500 text-white shadow-md"
-                      : "bg-gray-50 text-slate-700"
-                  } ${
-                    isToday
-                      ? "ring-2 ring-offset-1 ring-blue-500"
-                      : ""
-                  } ${
-                    !isWorkoutDay && isSunday ? "text-red-400" : ""
-                  } ${
-                    !isWorkoutDay && isSaturday ? "text-blue-400" : ""
-                  }`}
-                >
-                  {day}
-                </div>
-              );
-            })}
-          </div>
-
-          {/* 이번 달 요약 메시지 */}
-          <div className="mt-4 p-3 bg-green-50 rounded-lg border border-green-100">
-            <p className="text-sm text-green-800 text-center">
-              {data.thisMonthCount === 0 ? (
-                <>오늘부터 시작해보세요! 🏃‍♂️</>
-              ) : data.thisMonthCount < 5 ? (
-                <>좋은 시작이에요! 계속 화이팅! 💪</>
-              ) : data.thisMonthCount < 10 ? (
-                <>대단해요! 꾸준히 운동하고 계시네요! 🔥</>
-              ) : data.thisMonthCount < 20 ? (
-                <>정말 성실하시네요! 이번 달 {data.thisMonthCount}회 출석! 🏆</>
-              ) : (
-                <>운동 마스터! 이번 달만 {data.thisMonthCount}회! 👑</>
-              )}
-            </p>
-          </div>
-        </section>
-
-        {/* 동기부여 메시지 */}
-        <section className="mt-6 bg-gradient-to-r from-slate-800 to-slate-900 rounded-xl p-5 text-white shadow-lg">
-          <div className="flex items-start gap-3">
-            <Dumbbell className="w-8 h-8 text-yellow-400 flex-shrink-0 mt-1" />
-            <div>
-              <h3 className="font-semibold mb-1">꾸준함의 힘</h3>
-              <p className="text-sm text-slate-300 leading-relaxed">
-                지금까지 총 <span className="text-yellow-400 font-bold">{formatNumber(data.totalVolume)}kg</span>을 
-                들어올렸어요. 작은 노력이 모여 큰 결과가 됩니다!
-              </p>
+              {/* 로그아웃 버튼 */}
+              <button
+                onClick={handleLogout}
+                className="p-2 bg-white/20 hover:bg-white/30 rounded-lg transition-colors"
+                title="로그아웃"
+              >
+                <LogOut className="w-5 h-5" />
+              </button>
             </div>
           </div>
-        </section>
+        )}
 
-        {/* 운동 시작 버튼 */}
-        <div className="mt-6">
+        {/* 메인 액션 버튼들 */}
+        <div className="w-full flex gap-6 mb-6">
+          <Link
+            href="/templates/new"
+            className="flex-1 bg-white rounded-2xl shadow-lg p-8 flex flex-col items-center justify-center gap-4 text-center hover:shadow-xl transition-shadow"
+            aria-label="새 프로그램 만들기"
+          >
+            <Plus className="w-14 h-14 text-slate-700" />
+            <span className="text-lg font-medium text-slate-800">새 프로그램 만들기</span>
+          </Link>
+
           <Link
             href="/workout"
-            className="block w-full bg-blue-600 text-white text-center py-4 rounded-xl font-semibold text-lg shadow-lg hover:bg-blue-700 transition-colors"
+            className="flex-1 bg-white rounded-2xl shadow-lg p-8 flex flex-col items-center justify-center gap-4 text-center hover:shadow-xl transition-shadow"
+            aria-label="오늘의 운동 시작"
           >
-            오늘의 운동 시작하기
+            <Play className="w-14 h-14 text-slate-700" />
+            <span className="text-lg font-medium text-slate-800">오늘의 운동 시작</span>
           </Link>
         </div>
+
+        {/* 대시보드 버튼 */}
+        <Link
+          href="/dashboard"
+          className="w-full bg-gradient-to-r from-green-500 to-green-600 rounded-xl shadow-md p-4 flex items-center justify-center gap-3 hover:shadow-lg transition-shadow text-white mb-3"
+        >
+          <BarChart3 className="w-5 h-5" />
+          <span className="text-base font-medium">나의 운동 대시보드</span>
+        </Link>
+
+        {/* 프로그램 관리 버튼 */}
+        <Link
+          href="/programs/manage"
+          className="w-full bg-white rounded-xl shadow-md p-4 flex items-center justify-center gap-3 hover:shadow-lg transition-shadow border border-gray-100 mb-3"
+        >
+          <FolderOpen className="w-5 h-5 text-blue-600" />
+          <span className="text-base font-medium text-slate-800">저장된 프로그램 목록 관리</span>
+        </Link>
+
+        {/* 운동 기록 보기 버튼 */}
+        <Link
+          href="/history"
+          className="w-full bg-white rounded-xl shadow-md p-4 flex items-center justify-center gap-3 hover:shadow-lg transition-shadow border border-gray-100"
+        >
+          <History className="w-5 h-5 text-green-600" />
+          <span className="text-base font-medium text-slate-800">지난 운동 기록 보기</span>
+        </Link>
       </div>
-    </div>
+    </main>
   );
 }

@@ -51,6 +51,7 @@ export default function OnboardingPage() {
           id: userId,
           nickname: nickname.trim(),
           avatar_url: avatarUrl,
+          updated_at: new Date().toISOString(),
         });
 
       if (error) {
@@ -59,7 +60,7 @@ export default function OnboardingPage() {
         return;
       }
 
-      alert('환영합니다! 프로필이 설정되었습니다.');
+      // 성공 시 메인 페이지로 이동 (AuthGuard가 자동으로 처리)
       router.push('/');
       
     } catch (error) {
@@ -104,6 +105,7 @@ export default function OnboardingPage() {
               maxLength={20}
               className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent text-slate-800"
               disabled={isLoading}
+              autoFocus
             />
             <p className="mt-2 text-xs text-slate-500">
               입력하면 위의 아바타가 변경됩니다 ({nickname.length}/20)
