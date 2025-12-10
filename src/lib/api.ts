@@ -1,4 +1,4 @@
-import { supabase } from '@/lib/supabase';
+import { createClient } from '@/lib/supabase/client';
 import type { Program, ProgramExercise } from '@/types/database';
 
 export type ProgramWithExercises = Program & {
@@ -8,6 +8,7 @@ export type ProgramWithExercises = Program & {
 
 // 모든 프로그램 가져오기
 export async function getPrograms(): Promise<ProgramWithExercises[]> {
+  const supabase = createClient();
   // 소프트 삭제: is_archived가 false인 프로그램만 조회
   const { data: programs, error: programsError } = await supabase
     .from('programs')
@@ -41,6 +42,7 @@ export async function getPrograms(): Promise<ProgramWithExercises[]> {
 
 // ID로 특정 프로그램과 운동 목록 가져오기
 export async function getProgramById(id: string): Promise<ProgramWithExercises | null> {
+  const supabase = createClient();
   // 소프트 삭제: is_archived가 false인 프로그램만 조회
   const { data: program, error: programError } = await supabase
     .from('programs')
@@ -74,6 +76,7 @@ export async function getProgramById(id: string): Promise<ProgramWithExercises |
 
 // 운동 세션 생성
 export async function createWorkoutSession(programId: string) {
+  const supabase = createClient();
   const { data, error } = await supabase
     .from('workout_sessions')
     .insert({
@@ -100,6 +103,7 @@ export async function saveWorkoutSet(
   reps: number,
   rpe?: number
 ) {
+  const supabase = createClient();
   const { data, error } = await supabase
     .from('workout_sets')
     .insert({
@@ -123,6 +127,7 @@ export async function saveWorkoutSet(
 
 // 운동 세션 완료
 export async function completeWorkoutSession(sessionId: string, note?: string) {
+  const supabase = createClient();
   const { data, error } = await supabase
     .from('workout_sessions')
     .update({
@@ -143,6 +148,7 @@ export async function completeWorkoutSession(sessionId: string, note?: string) {
 
 // 운동 기록 조회 (세션 + 세트)
 export async function getWorkoutLogs() {
+  const supabase = createClient();
   // 완료된 세션만 조회 (ended_at이 있는 것)
   const { data: sessions, error: sessionsError } = await supabase
     .from('workout_sessions')
@@ -196,6 +202,7 @@ export async function getWorkoutLogs() {
 
 // 대시보드 데이터 조회
 export async function getDashboardData() {
+  const supabase = createClient();
   // 1. 모든 완료된 세션 조회
   const { data: sessions, error: sessionsError } = await supabase
     .from('workout_sessions')
@@ -249,6 +256,7 @@ export async function getDashboardData() {
 
 // 특정 운동 기록 조회 (ID로)
 export async function getWorkoutLogById(sessionId: string) {
+  const supabase = createClient();
   // 세션 조회
   const { data: session, error: sessionError } = await supabase
     .from('workout_sessions')
@@ -333,6 +341,7 @@ export async function getWorkoutLogById(sessionId: string) {
 
 // 운동 세션 삭제 (Hard Delete)
 export async function deleteWorkoutSession(sessionId: string) {
+  const supabase = createClient();
   // 먼저 세트 삭제
   const { error: setsError } = await supabase
     .from('workout_sets')
@@ -365,6 +374,7 @@ export async function updateWorkoutSet(
   reps: number,
   rpe?: number
 ) {
+  const supabase = createClient();
   const { data, error } = await supabase
     .from('workout_sets')
     .update({
@@ -386,6 +396,7 @@ export async function updateWorkoutSet(
 
 // 세션 노트 수정
 export async function updateSessionNote(sessionId: string, note: string) {
+  const supabase = createClient();
   const { data, error } = await supabase
     .from('workout_sessions')
     .update({ note })
