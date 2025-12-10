@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { ArrowLeft, Calendar, TrendingUp, Dumbbell, Award } from "lucide-react";
+import { ArrowLeft, Calendar, Dumbbell, TrendingUp, CheckCircle } from "lucide-react";
 import { getDashboardData } from "@/lib/api";
 
 type DashboardData = {
@@ -20,145 +20,196 @@ export default function DashboardPage() {
 
   useEffect(() => {
     async function fetchData() {
-      const dashboardData = await getDashboardData();
-      setData(dashboardData);
+      const result = await getDashboardData();
+      setData(result);
       setLoading(false);
     }
     fetchData();
   }, []);
 
+  // 달력 생성 함수
+  const generateCalendarDays = (year: number, month: number) => {
+    const firstDay = new Date(year, month, 1);
+    const lastDay = new Date(year, month + 1, 0);
+    const daysInMonth = lastDay.getDate();
+    const startDayOfWeek = firstDay.getDay(); // 0 = 일요일
+
+    const days: (number | null)[] = [];
+
+    // 첫 주 빈칸 채우기
+    for (let i = 0; i < startDayOfWeek; i++) {
+      days.push(null);
+    }
+
+    // 날짜 채우기
+    for (let day = 1; day <= daysInMonth; day++) {
+      days.push(day);
+    }
+
+    return days;
+  };
+
+  // 숫자 포맷팅 (천 단위 콤마)
+  const formatNumber = (num: number) => {
+    return num.toLocaleString("ko-KR");
+  };
+
+  // 월 이름 가져오기
+  const getMonthName = (month: number) => {
+    const months = [
+      "1월", "2월", "3월", "4월", "5월", "6월",
+      "7월", "8월", "9월", "10월", "11월", "12월"
+    ];
+    return months[month];
+  };
+
+  const today = new Date();
+  const todayDate = today.getDate();
+  const isCurrentMonth = data
+    ? today.getFullYear() === data.currentYear && today.getMonth() === data.currentMonth
+    : false;
+
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <p className="text-slate-600">로딩 중...</p>
+      <div className="min-h-screen px-4 pt-6 pb-8 bg-gray-50">
+        <div className="max-w-md mx-auto">
+          <header className="flex items-center mb-6">
+            <Link href="/" className="text-slate-600 mr-4">
+              <ArrowLeft className="w-6 h-6" />
+            </Link>
+            <h1 className="text-xl font-bold">나의 운동 대시보드</h1>
+          </header>
+          <div className="text-center py-12">
+            <p className="text-slate-600">로딩 중...</p>
+          </div>
+        </div>
       </div>
     );
   }
 
   if (!data) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="text-center">
-          <p className="text-slate-600 mb-4">데이터를 불러올 수 없습니다.</p>
-          <Link href="/" className="text-blue-600 hover:underline">
-            홈으로 돌아가기
-          </Link>
+      <div className="min-h-screen px-4 pt-6 pb-8 bg-gray-50">
+        <div className="max-w-md mx-auto">
+          <header className="flex items-center mb-6">
+            <Link href="/" className="text-slate-600 mr-4">
+              <ArrowLeft className="w-6 h-6" />
+            </Link>
+            <h1 className="text-xl font-bold">나의 운동 대시보드</h1>
+          </header>
+          <div className="text-center py-12 bg-white rounded-xl shadow-md">
+            <p className="text-slate-600">데이터를 불러오는데 실패했습니다.</p>
+          </div>
         </div>
       </div>
     );
   }
 
-  // 이번 달 캘린더 생성
-  const year = data.currentYear;
-  const month = data.currentMonth;
-  const firstDay = new Date(year, month, 1);
-  const lastDay = new Date(year, month + 1, 0);
-  const daysInMonth = lastDay.getDate();
-  const startDayOfWeek = firstDay.getDay(); // 0 (일요일) ~ 6 (토요일)
-
-  const calendarDays = [];
-  // 빈 칸 추가 (월의 첫날이 시작하는 요일 전까지)
-  for (let i = 0; i < startDayOfWeek; i++) {
-    calendarDays.push(null);
-  }
-  // 실제 날짜 추가
-  for (let day = 1; day <= daysInMonth; day++) {
-    calendarDays.push(day);
-  }
-
-  const weekDays = ["일", "월", "화", "수", "목", "금", "토"];
+  const calendarDays = generateCalendarDays(data.currentYear, data.currentMonth);
+  const workoutDatesSet = new Set(data.monthlyWorkoutDates);
 
   return (
     <div className="min-h-screen px-4 pt-6 pb-8 bg-gray-50">
-      <div className="max-w-4xl mx-auto">
+      <div className="max-w-md mx-auto">
         {/* Header */}
         <header className="flex items-center mb-6">
           <Link href="/" className="text-slate-600 mr-4">
             <ArrowLeft className="w-6 h-6" />
           </Link>
-          <h1 className="text-2xl font-bold">운동 대시보드</h1>
+          <div>
+            <h1 className="text-xl font-bold">나의 운동 대시보드</h1>
+            <p className="text-sm text-slate-600">꾸준함이 실력이 됩니다 💪</p>
+          </div>
         </header>
 
-        {/* 통계 카드 */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
-          {/* 총 운동 횟수 */}
-          <div className="bg-white rounded-xl shadow-md p-6">
-            <div className="flex items-center gap-3 mb-2">
-              <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
-                <Dumbbell className="w-5 h-5 text-blue-600" />
-              </div>
-              <h3 className="text-sm font-medium text-slate-600">총 운동 횟수</h3>
+        {/* 요약 통계 카드 */}
+        <section className="grid grid-cols-3 gap-3 mb-6">
+          {/* 이번 달 운동 횟수 */}
+          <div className="bg-gradient-to-br from-green-500 to-green-600 rounded-xl p-4 text-white shadow-lg">
+            <div className="flex items-center justify-center w-10 h-10 bg-white/20 rounded-full mb-2">
+              <CheckCircle className="w-5 h-5" />
             </div>
-            <p className="text-3xl font-bold text-slate-800">{data.totalSessions}회</p>
+            <p className="text-2xl font-bold">{data.thisMonthCount}회</p>
+            <p className="text-xs text-green-100 mt-1">이번 달 출석</p>
           </div>
 
-          {/* 이번 달 운동 */}
-          <div className="bg-white rounded-xl shadow-md p-6">
-            <div className="flex items-center gap-3 mb-2">
-              <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center">
-                <Calendar className="w-5 h-5 text-green-600" />
-              </div>
-              <h3 className="text-sm font-medium text-slate-600">이번 달 운동</h3>
+          {/* 총 누적 운동 횟수 */}
+          <div className="bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl p-4 text-white shadow-lg">
+            <div className="flex items-center justify-center w-10 h-10 bg-white/20 rounded-full mb-2">
+              <Calendar className="w-5 h-5" />
             </div>
-            <p className="text-3xl font-bold text-slate-800">{data.thisMonthCount}일</p>
+            <p className="text-2xl font-bold">{data.totalSessions}회</p>
+            <p className="text-xs text-blue-100 mt-1">총 운동 완료</p>
           </div>
 
-          {/* 총 볼륨 */}
-          <div className="bg-white rounded-xl shadow-md p-6">
-            <div className="flex items-center gap-3 mb-2">
-              <div className="w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center">
-                <TrendingUp className="w-5 h-5 text-purple-600" />
-              </div>
-              <h3 className="text-sm font-medium text-slate-600">총 볼륨</h3>
+          {/* 총 누적 볼륨 */}
+          <div className="bg-gradient-to-br from-purple-500 to-purple-600 rounded-xl p-4 text-white shadow-lg">
+            <div className="flex items-center justify-center w-10 h-10 bg-white/20 rounded-full mb-2">
+              <TrendingUp className="w-5 h-5" />
             </div>
-            <p className="text-3xl font-bold text-slate-800">
-              {(data.totalVolume / 1000).toFixed(1)}
-              <span className="text-lg text-slate-500 ml-1">톤</span>
+            <p className="text-lg font-bold">
+              {data.totalVolume >= 1000
+                ? `${formatNumber(Math.round(data.totalVolume / 1000))}t`
+                : `${formatNumber(data.totalVolume)}kg`}
             </p>
+            <p className="text-xs text-purple-100 mt-1">누적 볼륨</p>
           </div>
-        </div>
+        </section>
 
-        {/* 이번 달 운동 캘린더 */}
-        <div className="bg-white rounded-xl shadow-md p-6 mb-8">
-          <h2 className="text-lg font-semibold text-slate-800 mb-4 flex items-center gap-2">
-            <Calendar className="w-5 h-5" />
-            {year}년 {month + 1}월 운동 기록
-          </h2>
+        {/* 이번 달 운동 달력 */}
+        <section className="bg-white rounded-xl shadow-md p-5">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-lg font-semibold text-slate-800">
+              {data.currentYear}년 {getMonthName(data.currentMonth)} 출석 현황
+            </h2>
+            <div className="flex items-center gap-2">
+              <div className="w-3 h-3 bg-green-500 rounded-full"></div>
+              <span className="text-xs text-slate-600">운동 완료</span>
+            </div>
+          </div>
 
-          <div className="grid grid-cols-7 gap-2">
-            {/* 요일 헤더 */}
-            {weekDays.map((day, index) => (
+          {/* 요일 헤더 */}
+          <div className="grid grid-cols-7 gap-1 mb-2">
+            {["일", "월", "화", "수", "목", "금", "토"].map((day, index) => (
               <div
-                key={`weekday-${index}`}
-                className={`text-center text-sm font-medium py-2 ${
-                  index === 0 ? "text-red-500" : index === 6 ? "text-blue-500" : "text-slate-600"
+                key={day}
+                className={`text-center text-xs font-medium py-2 ${
+                  index === 0 ? "text-red-500" : index === 6 ? "text-blue-500" : "text-slate-500"
                 }`}
               >
                 {day}
               </div>
             ))}
+          </div>
 
-            {/* 날짜 */}
+          {/* 날짜 그리드 */}
+          <div className="grid grid-cols-7 gap-1">
             {calendarDays.map((day, index) => {
               if (day === null) {
-                return <div key={`empty-${index}`} className="aspect-square" />;
+                return <div key={`empty-${index}`} className="aspect-square"></div>;
               }
 
-              const hasWorkout = data.monthlyWorkoutDates.includes(day);
-              const isToday = 
-                day === new Date().getDate() &&
-                month === new Date().getMonth() &&
-                year === new Date().getFullYear();
+              const isWorkoutDay = workoutDatesSet.has(day);
+              const isToday = isCurrentMonth && day === todayDate;
+              const dayOfWeek = (index % 7);
+              const isSunday = dayOfWeek === 0;
+              const isSaturday = dayOfWeek === 6;
 
               return (
                 <div
-                  key={`day-${day}`}
-                  className={`aspect-square flex items-center justify-center rounded-lg text-sm font-medium transition-colors ${
-                    hasWorkout
+                  key={day}
+                  className={`aspect-square flex items-center justify-center rounded-lg text-sm font-medium transition-all ${
+                    isWorkoutDay
                       ? "bg-green-500 text-white shadow-md"
-                      : isToday
-                      ? "bg-blue-100 text-blue-700 border-2 border-blue-500"
-                      : "bg-gray-50 text-slate-600 hover:bg-gray-100"
+                      : "bg-gray-50 text-slate-700"
+                  } ${
+                    isToday
+                      ? "ring-2 ring-offset-1 ring-blue-500"
+                      : ""
+                  } ${
+                    !isWorkoutDay && isSunday ? "text-red-400" : ""
+                  } ${
+                    !isWorkoutDay && isSaturday ? "text-blue-400" : ""
                   }`}
                 >
                   {day}
@@ -167,34 +218,45 @@ export default function DashboardPage() {
             })}
           </div>
 
-          <div className="mt-4 flex items-center gap-4 text-sm text-slate-600">
-            <div className="flex items-center gap-2">
-              <div className="w-4 h-4 bg-green-500 rounded"></div>
-              <span>운동 완료</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <div className="w-4 h-4 bg-blue-100 border-2 border-blue-500 rounded"></div>
-              <span>오늘</span>
+          {/* 이번 달 요약 메시지 */}
+          <div className="mt-4 p-3 bg-green-50 rounded-lg border border-green-100">
+            <p className="text-sm text-green-800 text-center">
+              {data.thisMonthCount === 0 ? (
+                <>오늘부터 시작해보세요! 🏃‍♂️</>
+              ) : data.thisMonthCount < 5 ? (
+                <>좋은 시작이에요! 계속 화이팅! 💪</>
+              ) : data.thisMonthCount < 10 ? (
+                <>대단해요! 꾸준히 운동하고 계시네요! 🔥</>
+              ) : data.thisMonthCount < 20 ? (
+                <>정말 성실하시네요! 이번 달 {data.thisMonthCount}회 출석! 🏆</>
+              ) : (
+                <>운동 마스터! 이번 달만 {data.thisMonthCount}회! 👑</>
+              )}
+            </p>
+          </div>
+        </section>
+
+        {/* 동기부여 메시지 */}
+        <section className="mt-6 bg-gradient-to-r from-slate-800 to-slate-900 rounded-xl p-5 text-white shadow-lg">
+          <div className="flex items-start gap-3">
+            <Dumbbell className="w-8 h-8 text-yellow-400 flex-shrink-0 mt-1" />
+            <div>
+              <h3 className="font-semibold mb-1">꾸준함의 힘</h3>
+              <p className="text-sm text-slate-300 leading-relaxed">
+                지금까지 총 <span className="text-yellow-400 font-bold">{formatNumber(data.totalVolume)}kg</span>을 
+                들어올렸어요. 작은 노력이 모여 큰 결과가 됩니다!
+              </p>
             </div>
           </div>
-        </div>
+        </section>
 
-        {/* 액션 버튼 */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <Link
-            href="/history"
-            className="bg-white rounded-xl shadow-md p-6 hover:shadow-lg transition-shadow border border-gray-100 flex items-center justify-center gap-3"
-          >
-            <Calendar className="w-5 h-5 text-blue-600" />
-            <span className="font-medium text-slate-800">운동 기록 상세보기</span>
-          </Link>
-
+        {/* 운동 시작 버튼 */}
+        <div className="mt-6">
           <Link
             href="/workout"
-            className="bg-gradient-to-r from-blue-500 to-purple-600 rounded-xl shadow-md p-6 hover:shadow-lg transition-shadow flex items-center justify-center gap-3 text-white"
+            className="block w-full bg-blue-600 text-white text-center py-4 rounded-xl font-semibold text-lg shadow-lg hover:bg-blue-700 transition-colors"
           >
-            <Dumbbell className="w-5 h-5" />
-            <span className="font-medium">오늘의 운동 시작</span>
+            오늘의 운동 시작하기
           </Link>
         </div>
       </div>
