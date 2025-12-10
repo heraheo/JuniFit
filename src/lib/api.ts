@@ -77,9 +77,18 @@ export async function getProgramById(id: string): Promise<ProgramWithExercises |
 // 운동 세션 생성
 export async function createWorkoutSession(programId: string) {
   const supabase = createClient();
+  
+  // 인증 확인
+  const { data: { user }, error: authError } = await supabase.auth.getUser();
+  if (authError || !user) {
+    console.error('Authentication required for creating workout session');
+    return null;
+  }
+
   const { data, error } = await supabase
     .from('workout_sessions')
     .insert({
+      user_id: user.id,
       program_id: programId,
       started_at: new Date().toISOString(),
     })
@@ -104,9 +113,18 @@ export async function saveWorkoutSet(
   rpe?: number
 ) {
   const supabase = createClient();
+  
+  // 인증 확인
+  const { data: { user }, error: authError } = await supabase.auth.getUser();
+  if (authError || !user) {
+    console.error('Authentication required for saving workout set');
+    return null;
+  }
+
   const { data, error } = await supabase
     .from('workout_sets')
     .insert({
+      user_id: user.id,
       session_id: sessionId,
       exercise_name: exerciseName,
       set_number: setNumber,
