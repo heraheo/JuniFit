@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { Plus, Play, FolderOpen, History, BarChart3, LogOut } from "lucide-react";
+import { Plus, Play, FolderOpen, History, BarChart3, LogOut, Settings } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import type { User } from "@supabase/supabase-js";
 
@@ -113,6 +113,15 @@ export default function Page() {
                 <h2 className="text-2xl font-bold truncate">{profile.nickname}님</h2>
               </div>
 
+              {/* 설정 버튼 */}
+              <Link
+                href="/settings"
+                className="p-2 bg-white/20 hover:bg-white/30 rounded-lg transition-colors"
+                title="설정"
+              >
+                <Settings className="w-5 h-5" />
+              </Link>
+
               {/* 로그아웃 버튼 */}
               <button
                 onClick={handleLogout}
@@ -146,15 +155,6 @@ export default function Page() {
           </Link>
         </div>
 
-        {/* 대시보드 버튼 */}
-        <Link
-          href="/dashboard"
-          className="w-full bg-gradient-to-r from-green-500 to-green-600 rounded-xl shadow-md p-4 flex items-center justify-center gap-3 hover:shadow-lg transition-shadow text-white mb-3"
-        >
-          <BarChart3 className="w-5 h-5" />
-          <span className="text-base font-medium">나의 운동 대시보드</span>
-        </Link>
-
         {/* 프로그램 관리 버튼 */}
         <Link
           href="/programs/manage"
@@ -167,11 +167,23 @@ export default function Page() {
         {/* 운동 기록 보기 버튼 */}
         <Link
           href="/history"
-          className="w-full bg-white rounded-xl shadow-md p-4 flex items-center justify-center gap-3 hover:shadow-lg transition-shadow border border-gray-100"
+          className="w-full bg-white rounded-xl shadow-md p-4 flex items-center justify-center gap-3 hover:shadow-lg transition-shadow border border-gray-100 mb-3"
         >
           <History className="w-5 h-5 text-green-600" />
           <span className="text-base font-medium text-slate-800">지난 운동 기록 보기</span>
         </Link>
+
+        {/* 대시보드 버튼 */}
+        <Link
+          href="/dashboard"
+          className="w-full bg-gradient-to-r from-green-500 to-green-600 rounded-xl shadow-md p-4 flex items-center justify-center gap-3 hover:shadow-lg transition-shadow text-white"
+        >
+          <BarChart3 className="w-5 h-5" />
+          <span className="text-base font-medium">나의 운동 대시보드</span>
+        </Link>
+
+
+        
       </div>
     </main>
   );
