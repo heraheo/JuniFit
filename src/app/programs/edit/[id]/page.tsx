@@ -6,15 +6,7 @@ import { useRouter, useParams } from "next/navigation";
 import { Trash, ArrowLeft } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import type { Program, ProgramExercise } from "@/types/database";
-
-type ExerciseInput = {
-  id: string;
-  name: string;
-  target: { sets: number | string; reps: { min: number | string; max: number | string } };
-  restSeconds: number | string;
-  intention: string;
-  note: string;
-};
+import { validateNumericInput, validateProgramForm, type ExerciseInput } from "@/lib/validation";
 
 export default function ProgramEditPage() {
   const router = useRouter();
@@ -111,70 +103,25 @@ export default function ProgramEditPage() {
     });
   };
 
-  const getMissingSummary = (ex: ExerciseInput, idx: number) => {
-    const missing: string[] = [];
-    if (!ex.name.trim()) missing.push("운동명");
-    if (ex.target.sets === "" || Number(ex.target.sets) < 1) missing.push("세트 수");
-    if (ex.target.reps.min === "" || ex.target.reps.max === "") missing.push("횟수(최소/최대)");
-    if (ex.restSeconds === "" || Number(ex.restSeconds) < 0) missing.push("휴식 시간(초)");
-    if (missing.length === 0) return undefined;
-    return `${missing.join(", ")}을 입력해주세요`;
-  };
-
   const computeErrors = (): typeof errors => {
-    const newErrors: typeof errors = {};
-    if (!title.trim()) newErrors.title = "프로그램 제목을 입력하세요.";
-    if (!description.trim()) newErrors.description = "전체 가이드를 입력하세요.";
-
-    let hasValidExercise = false;
-    exercises.forEach((ex, i) => {
-      const id = ex.id;
-      const idx = i + 1;
-      let hasMissing = false;
-      if (!ex.name.trim()) hasMissing = true;
-      if (ex.target.sets === "" || Number(ex.target.sets) < 1) hasMissing = true;
-      if (ex.target.reps.min === "" || ex.target.reps.max === "") hasMissing = true;
-      if (ex.restSeconds === "" || Number(ex.restSeconds) < 0) hasMissing = true;
-
-      if (hasMissing) {
-        newErrors.exercises = newErrors.exercises || {};
-        const msg = getMissingSummary(ex, idx);
-        newErrors.exercises[id] = { summary: msg || "운동 이름, 세트 수를 입력해주세요" };
-      } else {
-        hasValidExercise = true;
-      }
-    });
-
-    if (!hasValidExercise) {
-      newErrors.exercises = newErrors.exercises || {};
-    }
-
-    return newErrors;
+    return validateProgramForm(title, description, exercises);
   };
 
   const handleNumericInput = (value: string, field: string, exerciseId: string) => {
     const errorKey = `${exerciseId}-${field}`;
+    const result = validateNumericInput(value);
     
-    if (value === "") {
+    if (result.isValid) {
       setInputErrors((prev) => {
         const copy = { ...prev };
         delete copy[errorKey];
         return copy;
       });
-      return "";
+    } else if (result.error) {
+      setInputErrors((prev) => ({ ...prev, [errorKey]: result.error! }));
     }
-
-    if (!/^\d+$/.test(value)) {
-      setInputErrors((prev) => ({ ...prev, [errorKey]: "숫자만 입력해주세요" }));
-      return value;
-    }
-
-    setInputErrors((prev) => {
-      const copy = { ...prev };
-      delete copy[errorKey];
-      return copy;
-    });
-    return value;
+    
+    return result.sanitizedValue;
   };
 
   const save = async () => {

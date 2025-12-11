@@ -11,6 +11,7 @@ import {
   updateSessionNote,
 } from "@/lib/api";
 import type { WorkoutSet, WorkoutLogDetail } from "@/types/database";
+import { formatDateWithWeekday, formatTime, calculateDuration, groupSetsByExercise } from "@/lib/utils";
 
 type WorkoutLog = WorkoutLogDetail;
 
@@ -77,54 +78,6 @@ export default function WorkoutLogDetailPage({
     }
     fetchLog();
   }, [resolvedParams.id]);
-
-  // 날짜 포맷팅
-  const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
-    return date.toLocaleDateString("ko-KR", {
-      year: "numeric",
-      month: "long",
-      day: "numeric",
-      weekday: "short",
-    });
-  };
-
-  // 시간 포맷팅
-  const formatTime = (dateString: string) => {
-    const date = new Date(dateString);
-    return date.toLocaleTimeString("ko-KR", {
-      hour: "2-digit",
-      minute: "2-digit",
-    });
-  };
-
-  // 운동 시간 계산
-  const getDuration = (startedAt: string, endedAt?: string | null) => {
-    if (!endedAt) return "진행 중";
-    const start = new Date(startedAt);
-    const end = new Date(endedAt);
-    const diffMs = end.getTime() - start.getTime();
-    const diffMins = Math.round(diffMs / 60000);
-
-    if (diffMins < 60) {
-      return `${diffMins}분`;
-    }
-    const hours = Math.floor(diffMins / 60);
-    const mins = diffMins % 60;
-    return `${hours}시간 ${mins}분`;
-  };
-
-  // 세트를 운동별로 그룹화
-  const groupSetsByExercise = (sets: EditableSet[]) => {
-    const grouped: Record<string, EditableSet[]> = {};
-    sets.forEach((set) => {
-      if (!grouped[set.exercise_name]) {
-        grouped[set.exercise_name] = [];
-      }
-      grouped[set.exercise_name].push(set);
-    });
-    return grouped;
-  };
 
   // 삭제 핸들러
   const handleDelete = async () => {
@@ -320,13 +273,13 @@ export default function WorkoutLogDetailPage({
           <div className="flex items-center gap-2 mb-2">
             <Calendar className="w-5 h-5 text-blue-600" />
             <span className="text-lg font-semibold text-slate-800">
-              {formatDate(log.started_at)}
+              {formatDateWithWeekday(log.started_at)}
             </span>
           </div>
           <div className="flex items-center gap-3 text-sm text-slate-600 mb-2">
             <span>{formatTime(log.started_at)}</span>
             <span>•</span>
-            <span>{getDuration(log.started_at, log.ended_at)}</span>
+            <span>{calculateDuration(log.started_at, log.ended_at)}</span>
           </div>
           {log.programTitle && (
             <p className="text-sm text-blue-600 mb-2">{log.programTitle}</p>

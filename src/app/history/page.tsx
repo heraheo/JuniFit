@@ -5,6 +5,7 @@ import Link from "next/link";
 import { ArrowLeft, Calendar, Dumbbell, ChevronDown, ChevronRight, Trash2, Edit3, X, Save } from "lucide-react";
 import { getWorkoutLogs, deleteWorkoutSession, updateWorkoutSet } from "@/lib/api";
 import type { WorkoutSession, WorkoutSet } from "@/types/database";
+import { formatDateWithWeekday, formatTime, calculateDuration, groupSetsByExercise } from "@/lib/utils";
 
 type WorkoutLog = WorkoutSession & {
   sets: WorkoutSet[];
@@ -35,54 +36,6 @@ export default function LogsPage() {
     setLogs(data);
     setLoading(false);
   }
-
-  // 날짜 포맷팅
-  const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
-    return date.toLocaleDateString("ko-KR", {
-      year: "numeric",
-      month: "long",
-      day: "numeric",
-      weekday: "short",
-    });
-  };
-
-  // 시간 포맷팅
-  const formatTime = (dateString: string) => {
-    const date = new Date(dateString);
-    return date.toLocaleTimeString("ko-KR", {
-      hour: "2-digit",
-      minute: "2-digit",
-    });
-  };
-
-  // 운동 시간 계산
-  const getDuration = (startedAt: string, endedAt?: string) => {
-    if (!endedAt) return "진행 중";
-    const start = new Date(startedAt);
-    const end = new Date(endedAt);
-    const diffMs = end.getTime() - start.getTime();
-    const diffMins = Math.round(diffMs / 60000);
-    
-    if (diffMins < 60) {
-      return `${diffMins}분`;
-    }
-    const hours = Math.floor(diffMins / 60);
-    const mins = diffMins % 60;
-    return `${hours}시간 ${mins}분`;
-  };
-
-  // 세트를 운동별로 그룹화
-  const groupSetsByExercise = (sets: WorkoutSet[]) => {
-    const grouped: Record<string, WorkoutSet[]> = {};
-    sets.forEach((set) => {
-      if (!grouped[set.exercise_name]) {
-        grouped[set.exercise_name] = [];
-      }
-      grouped[set.exercise_name].push(set);
-    });
-    return grouped;
-  };
 
   const toggleSession = (sessionId: string) => {
     if (editingSession === sessionId) return; // 수정 중일 때는 접기 방지
@@ -211,13 +164,13 @@ export default function LogsPage() {
                         <div className="flex items-center gap-2 mb-1">
                           <Calendar className="w-4 h-4 text-blue-600" />
                           <span className="font-semibold text-slate-800">
-                            {formatDate(log.started_at)}
+                            {formatDateWithWeekday(log.started_at)}
                           </span>
                         </div>
                         <div className="flex items-center gap-3 text-sm text-slate-600">
                           <span>{formatTime(log.started_at)}</span>
                           <span>•</span>
-                          <span>{getDuration(log.started_at, log.ended_at)}</span>
+                            <span>{calculateDuration(log.started_at, log.ended_at)}</span>
                         </div>
                         {log.programTitle && (
                           <p className="text-sm text-blue-600 mt-1">

@@ -6,6 +6,7 @@ import Link from "next/link";
 import { ArrowLeft, Check, Timer, Lock } from "lucide-react";
 import { getProgramById, createWorkoutSession, saveWorkoutSet, completeWorkoutSession } from "@/lib/api";
 import type { ProgramWithExercises } from "@/lib/api";
+import { formatSeconds } from "@/lib/utils";
 
 // 동적 라우트를 위한 params 타입 정의
 type Props = {
@@ -199,13 +200,6 @@ export default function WorkoutDetailPage({ params }: Props) {
   const handleTimerSkip = () => {
     setIsTimerOpen(false);
     moveToNextExercise();
-  };
-
-  // 시간 포맷팅
-  const formatTime = (seconds: number) => {
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-    return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
   if (!program) {
@@ -535,7 +529,7 @@ export default function WorkoutDetailPage({ params }: Props) {
             
             <div className="mb-8">
               <div className="text-6xl font-bold text-blue-600 mb-6 text-center">
-                {formatTime(remainingTime)}
+                {formatSeconds(remainingTime)}
               </div>
               
               <div className="flex justify-center">
