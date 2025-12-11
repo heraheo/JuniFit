@@ -79,3 +79,9 @@ next-env.d.ts
 *.bak
 *_backup.*
 *_replace.*
+
+# PWA files
+public/sw.js
+public/workbox-*.js
+public/sw.js.map
+public/workbox-*.js.map
