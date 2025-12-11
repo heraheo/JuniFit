@@ -1,25 +1,14 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import Link from "next/link";
 import { ArrowLeft, Dumbbell } from "lucide-react";
 import { getPrograms } from "@/lib/api";
-import type { ProgramWithExercises } from "@/lib/api";
 import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
 import { EmptyState } from "@/components/ui/EmptyState";
+import { useAsync } from "@/hooks/useAsync";
 
 export default function WorkoutPage() {
-  const [programs, setPrograms] = useState<ProgramWithExercises[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    async function fetchPrograms() {
-      const data = await getPrograms();
-      setPrograms(data);
-      setLoading(false);
-    }
-    fetchPrograms();
-  }, []);
+  const { loading, data: programs } = useAsync(getPrograms, []);
 
   return (
     <div className="min-h-screen px-4 pt-6 pb-8 bg-gray-50">
@@ -35,7 +24,7 @@ export default function WorkoutPage() {
         {/* 프로그램 목록 */}
         {loading ? (
           <LoadingSpinner />
-        ) : programs.length === 0 ? (
+        ) : !programs || programs.length === 0 ? (
           <EmptyState
             icon={Dumbbell}
             title="시작할 프로그램이 없습니다"
@@ -45,7 +34,7 @@ export default function WorkoutPage() {
           />
         ) : (
           <section className="flex flex-col gap-6">
-            {programs.map((program) => (
+            {programs?.map((program) => (
               <Link key={program.id} href={`/workout/${program.id}`}>
                 <div className="bg-white rounded-xl shadow-md p-8 hover:shadow-lg transition-all duration-200 cursor-pointer border border-gray-100">
                   <h3 className="text-xl font-semibold text-slate-800 mb-4">

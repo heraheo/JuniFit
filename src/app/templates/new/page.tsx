@@ -1,86 +1,31 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Trash, ArrowLeft } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
-import { validateNumericInput, validateProgramForm, type ExerciseInput } from "@/lib/validation";
+import { useProgramForm } from "@/hooks/useProgramForm";
 
 export default function Page() {
   const router = useRouter();
-  const [title, setTitle] = useState("");
-  const [description, setDescription] = useState("");
-  const [exercises, setExercises] = useState<ExerciseInput[]>([
-    { id: String(Date.now()), name: "", target: { sets: "", reps: { min: "", max: "" } }, restSeconds: "", intention: "", note: "" },
-  ]);
-  const [errors, setErrors] = useState<{
-    title?: string;
-    description?: string;
-    exercises?: Record<string, { summary?: string }>;
-  }>({});
-  const [inputErrors, setInputErrors] = useState<Record<string, string>>({});
+  const { formState, validation, actions } = useProgramForm();
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [savedProgramInfo, setSavedProgramInfo] = useState<{ title: string; exerciseCount: number } | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [showDuplicateModal, setShowDuplicateModal] = useState(false);
   const [duplicateTitle, setDuplicateTitle] = useState("");
 
-  const addExercise = () => {
-    setExercises((prev) => [
-      ...prev,
-      { id: String(Date.now() + Math.random()), name: "", target: { sets: "", reps: { min: "", max: "" } }, restSeconds: "", intention: "", note: "" },
-    ]);
-  };
-
-  const updateExercise = (id: string, updater: (ex: ExerciseInput) => ExerciseInput) => {
-    setExercises((prev) => prev.map((ex) => (ex.id === id ? updater(ex) : ex)));
-  };
-
-  const removeExercise = (id: string) => {
-    setExercises((prev) => prev.filter((ex) => ex.id !== id));
-    setErrors((e) => {
-      if (!e.exercises) return e;
-      const copy = { ...e.exercises };
-      delete copy[id];
-      return { ...e, exercises: Object.keys(copy).length ? copy : undefined };
-    });
-  };
-
-  const computeErrors = (): typeof errors => {
-    return validateProgramForm(title, description, exercises);
-  };
-
-  const handleNumericInput = (value: string, field: string, exerciseId: string) => {
-    const errorKey = `${exerciseId}-${field}`;
-    const result = validateNumericInput(value);
-    
-    if (result.isValid) {
-      setInputErrors((prev) => {
-        const copy = { ...prev };
-        delete copy[errorKey];
-        return copy;
-      });
-    } else if (result.error) {
-      setInputErrors((prev) => ({ ...prev, [errorKey]: result.error! }));
-    }
-    
-    return result.sanitizedValue;
-  };
-
   const save = async () => {
     if (isSaving) return;
 
-    const hasInputErrors = Object.keys(inputErrors).length > 0;
+    const hasInputErrors = Object.keys(validation.inputErrors).length > 0;
     if (hasInputErrors) {
       alert("입력 오류를 먼저 수정해주세요.");
       return;
     }
 
-    const computed = computeErrors();
-    setErrors(computed);
-    const hasErrors = Boolean(computed.title || computed.description || (computed.exercises && Object.keys(computed.exercises).length > 0));
-    if (hasErrors) {
+    if (!actions.validateForm()) {
       alert("필수 입력란을 모두 채워주세요.");
       return;
     }
@@ -101,12 +46,12 @@ export default function Page() {
       const { data: existingPrograms, error: checkError } = await supabase
         .from('programs')
         .select('id, title')
-        .eq('title', title.trim());
+        .eq('title', formState.title.trim());
 
       if (checkError) throw checkError;
 
       if (existingPrograms && existingPrograms.length > 0) {
-        setDuplicateTitle(title.trim());
+        setDuplicateTitle(formState.title.trim());
         setShowDuplicateModal(true);
         setIsSaving(false);
         return;
@@ -117,8 +62,8 @@ export default function Page() {
         .from('programs')
         .insert({
           user_id: user.id,
-          title: title.trim(),
-          description: description.trim(),
+          title: formState.title.trim(),
+          description: formState.description.trim(),
         })
         .select()
         .single();
@@ -129,7 +74,7 @@ export default function Page() {
       const programId = programData.id;
 
       // 2. 운동 목록 저장
-      const programExercises = exercises
+      const programExercises = formState.exercises
         .filter((ex) => {
           return (
             ex.name.trim() &&
@@ -159,7 +104,7 @@ export default function Page() {
       if (exercisesError) throw exercisesError;
 
       setSavedProgramInfo({
-        title: title,
+        title: formState.title,
         exerciseCount: programExercises.length
       });
       setIsSaving(false);
@@ -187,49 +132,40 @@ export default function Page() {
         <section className="bg-white rounded-xl shadow-md p-4 mb-6">
           <label className="block text-sm font-medium text-slate-700 mb-2">프로그램 제목</label>
           <input
-            value={title}
-            onChange={(e) => {
-              setTitle(e.target.value);
-              setErrors((prev) => ({ ...prev, title: undefined }));
-            }}
+            value={formState.title}
+            onChange={(e) => actions.setTitle(e.target.value)}
             className="w-full p-3 border rounded-lg mb-4 focus:outline-none focus:ring-2 focus:ring-blue-500"
             placeholder="제목을 입력하세요"
           />
-          {errors.title && <p className="text-sm text-red-600 mt-1">{errors.title}</p>}
+          {validation.errors.title && <p className="text-sm text-red-600 mt-1">{validation.errors.title}</p>}
 
           <label className="block text-sm font-medium text-slate-700 mb-2">전체 가이드</label>
           <textarea
-            value={description}
-            onChange={(e) => {
-              setDescription(e.target.value);
-              setErrors((prev) => ({ ...prev, description: undefined }));
-            }}
+            value={formState.description}
+            onChange={(e) => actions.setDescription(e.target.value)}
             className="w-full p-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
             rows={3}
             placeholder="프로그램의 전체 가이드를 입력하세요"
           />
-          {errors.description && <p className="text-sm text-red-600 mt-1">{errors.description}</p>}
+          {validation.errors.description && <p className="text-sm text-red-600 mt-1">{validation.errors.description}</p>}
         </section>
 
         {/* Exercises list */}
         <section className="space-y-4 mb-6">
-          {exercises.map((ex, i) => (
+          {formState.exercises.map((ex, i) => (
             <div key={ex.id} className="bg-white rounded-xl shadow-md p-4 border border-gray-100">
               <div className="mb-3 flex items-center gap-3">
                 <div className="flex-1">
                   <input
                     value={ex.name}
-                    onChange={(e) => {
-                      const newEx = { ...ex, name: e.target.value };
-                      updateExercise(ex.id, () => newEx);
-                    }}
+                    onChange={(e) => actions.updateExercise(ex.id, (prev) => ({ ...prev, name: e.target.value }))}
                     className="w-full p-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                     placeholder="운동명"
                   />
                 </div>
-                {exercises.length > 1 && (
+                {formState.exercises.length > 1 && (
                   <button
-                    onClick={() => removeExercise(ex.id)}
+                    onClick={() => actions.removeExercise(ex.id)}
                     className="p-2 text-red-500 hover:bg-red-50 rounded-lg transition-colors"
                   >
                     <Trash className="w-5 h-5" />
@@ -245,14 +181,14 @@ export default function Page() {
                     inputMode="numeric"
                     value={ex.target.sets}
                     onChange={(e) => {
-                      const val = handleNumericInput(e.target.value, 'sets', ex.id);
-                      updateExercise(ex.id, (prev) => ({ ...prev, target: { ...prev.target, sets: val } }));
+                      const val = actions.handleNumericInput(e.target.value, 'sets', ex.id);
+                      actions.updateExercise(ex.id, (prev) => ({ ...prev, target: { ...prev.target, sets: val } }));
                     }}
                     className="w-full p-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                     placeholder="세트"
                   />
-                  {inputErrors[`${ex.id}-sets`] && (
-                    <p className="text-xs text-red-600 mt-1">{inputErrors[`${ex.id}-sets`]}</p>
+                  {validation.inputErrors[`${ex.id}-sets`] && (
+                    <p className="text-xs text-red-600 mt-1">{validation.inputErrors[`${ex.id}-sets`]}</p>
                   )}
                 </div>
                 <div>
@@ -262,14 +198,14 @@ export default function Page() {
                     inputMode="numeric"
                     value={ex.restSeconds}
                     onChange={(e) => {
-                      const val = handleNumericInput(e.target.value, 'rest', ex.id);
-                      updateExercise(ex.id, (prev) => ({ ...prev, restSeconds: val }));
+                      const val = actions.handleNumericInput(e.target.value, 'rest', ex.id);
+                      actions.updateExercise(ex.id, (prev) => ({ ...prev, restSeconds: val }));
                     }}
                     className="w-full p-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                     placeholder="초"
                   />
-                  {inputErrors[`${ex.id}-rest`] && (
-                    <p className="text-xs text-red-600 mt-1">{inputErrors[`${ex.id}-rest`]}</p>
+                  {validation.inputErrors[`${ex.id}-rest`] && (
+                    <p className="text-xs text-red-600 mt-1">{validation.inputErrors[`${ex.id}-rest`]}</p>
                   )}
                 </div>
               </div>
@@ -282,8 +218,8 @@ export default function Page() {
                     inputMode="numeric"
                     value={ex.target.reps.min}
                     onChange={(e) => {
-                      const val = handleNumericInput(e.target.value, 'reps-min', ex.id);
-                      updateExercise(ex.id, (prev) => ({
+                      const val = actions.handleNumericInput(e.target.value, 'reps-min', ex.id);
+                      actions.updateExercise(ex.id, (prev) => ({
                         ...prev,
                         target: { ...prev.target, reps: { ...prev.target.reps, min: val } }
                       }));
@@ -291,8 +227,8 @@ export default function Page() {
                     className="w-full p-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                     placeholder="최소"
                   />
-                  {inputErrors[`${ex.id}-reps-min`] && (
-                    <p className="text-xs text-red-600 mt-1">{inputErrors[`${ex.id}-reps-min`]}</p>
+                  {validation.inputErrors[`${ex.id}-reps-min`] && (
+                    <p className="text-xs text-red-600 mt-1">{validation.inputErrors[`${ex.id}-reps-min`]}</p>
                   )}
                 </div>
                 <div>
@@ -302,8 +238,8 @@ export default function Page() {
                     inputMode="numeric"
                     value={ex.target.reps.max}
                     onChange={(e) => {
-                      const val = handleNumericInput(e.target.value, 'reps-max', ex.id);
-                      updateExercise(ex.id, (prev) => ({
+                      const val = actions.handleNumericInput(e.target.value, 'reps-max', ex.id);
+                      actions.updateExercise(ex.id, (prev) => ({
                         ...prev,
                         target: { ...prev.target, reps: { ...prev.target.reps, max: val } }
                       }));
@@ -311,8 +247,8 @@ export default function Page() {
                     className="w-full p-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                     placeholder="최대"
                   />
-                  {inputErrors[`${ex.id}-reps-max`] && (
-                    <p className="text-xs text-red-600 mt-1">{inputErrors[`${ex.id}-reps-max`]}</p>
+                  {validation.inputErrors[`${ex.id}-reps-max`] && (
+                    <p className="text-xs text-red-600 mt-1">{validation.inputErrors[`${ex.id}-reps-max`]}</p>
                   )}
                 </div>
               </div>
@@ -321,7 +257,7 @@ export default function Page() {
                 <label className="text-xs text-slate-600 mb-1 block">의도 (선택)</label>
                 <input
                   value={ex.intention}
-                  onChange={(e) => updateExercise(ex.id, (prev) => ({ ...prev, intention: e.target.value }))}
+                  onChange={(e) => actions.updateExercise(ex.id, (prev) => ({ ...prev, intention: e.target.value }))}
                   className="w-full p-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                   placeholder="예: 가슴 근육 강화"
                 />
@@ -331,21 +267,21 @@ export default function Page() {
                 <label className="text-xs text-slate-600 mb-1 block">메모 (선택)</label>
                 <textarea
                   value={ex.note}
-                  onChange={(e) => updateExercise(ex.id, (prev) => ({ ...prev, note: e.target.value }))}
+                  onChange={(e) => actions.updateExercise(ex.id, (prev) => ({ ...prev, note: e.target.value }))}
                   className="w-full p-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                   rows={2}
                   placeholder="추가 설명"
                 />
               </div>
 
-              {errors.exercises?.[ex.id]?.summary && (
-                <p className="text-sm text-red-600 mt-2">{errors.exercises[ex.id].summary}</p>
+              {validation.errors.exercises?.[ex.id]?.summary && (
+                <p className="text-sm text-red-600 mt-2">{validation.errors.exercises[ex.id].summary}</p>
               )}
             </div>
           ))}
 
           <button
-            onClick={addExercise}
+            onClick={actions.addExercise}
             className="w-full py-3 border-2 border-dashed border-slate-300 rounded-xl text-slate-600 hover:border-blue-400 hover:text-blue-600 transition-colors"
           >
             + 운동 추가

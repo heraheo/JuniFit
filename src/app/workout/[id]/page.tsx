@@ -4,27 +4,16 @@ import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft, Check, Timer, Lock } from "lucide-react";
-import { getProgramById, createWorkoutSession, saveWorkoutSet, completeWorkoutSession } from "@/lib/api";
+import { getProgramById, createWorkoutSession } from "@/lib/api";
 import type { ProgramWithExercises } from "@/lib/api";
 import { formatSeconds } from "@/lib/utils";
+import { useRestTimer } from "@/hooks/useRestTimer";
+import { useWorkoutSession } from "@/hooks/useWorkoutSession";
+
 
 // 동적 라우트를 위한 params 타입 정의
 type Props = {
   params: Promise<{ id: string }>;
-};
-
-type SetInput = {
-  weight: string;
-  reps: string;
-};
-
-type InputErrors = {
-  [exerciseId: string]: {
-    [setIndex: number]: {
-      weight?: string;
-      reps?: string;
-    };
-  };
 };
 
 export default function WorkoutDetailPage({ params }: Props) {
@@ -33,26 +22,25 @@ export default function WorkoutDetailPage({ params }: Props) {
   const [loading, setLoading] = useState(true);
   const [sessionId, setSessionId] = useState<string | null>(null);
   
-  // 순차 진행을 위한 현재 운동 인덱스
-  const [currentExerciseIndex, setCurrentExerciseIndex] = useState(0);
-  
-  // 입력 오류 상태
-  const [errors, setErrors] = useState<InputErrors>({});
-  
-  // 운동 완료 팝업 상태
-  const [showCompletionModal, setShowCompletionModal] = useState(false);
-  const [isSaving, setIsSaving] = useState(false);
-  
-  // 휴식 타이머 상태
-  const [isTimerOpen, setIsTimerOpen] = useState(false);
-  const [timerSeconds, setTimerSeconds] = useState(0);
-  const [remainingTime, setRemainingTime] = useState(0);
-  
-  // 각 운동의 세트별 입력값 저장
-  const [exerciseInputs, setExerciseInputs] = useState<Record<string, SetInput[]>>({});
-  
   // 운동 카드 참조 (스크롤용)
   const exerciseRefs = useRef<Record<string, HTMLDivElement | null>>({});
+  
+  // 세션 관리 훅
+  const session = useWorkoutSession({
+    program,
+    sessionId,
+    onComplete: () => {
+      if (program) {
+        const exercise = program.exercises[session.currentIndex];
+        const restTime = exercise.rest_seconds || 60;
+        timer.start(restTime);
+      }
+    },
+    exerciseRefs,
+  });
+  
+  // 휴식 타이머 훅
+  const timer = useRestTimer(() => session.actions.moveToNext());
 
   useEffect(() => {
     async function fetchProgram() {
@@ -62,145 +50,19 @@ export default function WorkoutDetailPage({ params }: Props) {
       
       if (data) {
         // 운동 세션 생성
-        const session = await createWorkoutSession(resolvedParams.id);
-        if (session) {
-          setSessionId(session.id);
+        const workoutSession = await createWorkoutSession(resolvedParams.id);
+        if (workoutSession) {
+          setSessionId(workoutSession.id);
         }
         
         // 입력값 초기화
-        const initialInputs: Record<string, SetInput[]> = {};
-        data.exercises.forEach((exercise) => {
-          initialInputs[exercise.id] = Array(exercise.target_sets).fill(null).map(() => ({
-            weight: "",
-            reps: "",
-          }));
-        });
-        setExerciseInputs(initialInputs);
+        session.actions.initializeInputs(data);
       }
       
       setLoading(false);
     }
     fetchProgram();
-  }, [params]);
-
-  // 타이머 로직
-  useEffect(() => {
-    let interval: NodeJS.Timeout | null = null;
-    
-    if (isTimerOpen && remainingTime > 0) {
-      interval = setInterval(() => {
-        setRemainingTime((prev) => {
-          if (prev <= 1) {
-            handleTimerComplete();
-            return 0;
-          }
-          return prev - 1;
-        });
-      }, 1000);
-    }
-    
-    return () => {
-      if (interval) clearInterval(interval);
-    };
-  }, [isTimerOpen, remainingTime]);
-
-  // 타이머 완료 처리
-  const handleTimerComplete = () => {
-    setIsTimerOpen(false);
-    moveToNextExercise();
-  };
-
-  // 다음 운동으로 이동
-  const moveToNextExercise = () => {
-    if (!program) return;
-    
-    const nextIndex = currentExerciseIndex + 1;
-    
-    if (nextIndex >= program.exercises.length) {
-      handleAllExercisesComplete();
-    } else {
-      setCurrentExerciseIndex(nextIndex);
-      
-      setTimeout(() => {
-        const nextExercise = program.exercises[nextIndex];
-        const ref = exerciseRefs.current[nextExercise.id];
-        if (ref) {
-          ref.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        }
-      }, 100);
-    }
-  };
-
-  // 모든 운동 완료 처리
-  const handleAllExercisesComplete = async () => {
-    if (isSaving || !program) return;
-    
-    setIsSaving(true);
-    
-    try {
-      if (sessionId) {
-        // 프로그램의 모든 운동과 세트를 저장 (입력 안 한 것은 0으로 저장)
-        for (const exercise of program.exercises) {
-          const inputs = exerciseInputs[exercise.id] || [];
-          // target_sets만큼 모든 세트를 저장
-          for (let i = 0; i < exercise.target_sets; i++) {
-            const set = inputs[i];
-            // 입력값이 있으면 그대로, 없으면 0으로 저장
-            const weight = set?.weight.trim() !== '' ? parseFloat(set.weight) : 0;
-            const reps = set?.reps.trim() !== '' ? parseInt(set.reps) : 0;
-            
-            const result = await saveWorkoutSet(
-              sessionId,
-              exercise.name,
-              i + 1,
-              weight,
-              reps
-            );
-            
-            if (!result) {
-              throw new Error(`${exercise.name} ${i + 1}세트 저장 실패`);
-            }
-          }
-        }
-        
-        const sessionResult = await completeWorkoutSession(sessionId);
-        if (!sessionResult) {
-          throw new Error('세션 완료 처리 실패');
-        }
-      }
-      
-      setIsSaving(false);
-      setShowCompletionModal(true);
-      
-    } catch (error) {
-      console.error('운동 기록 저장 실패:', error);
-      setIsSaving(false);
-      alert(`운동 기록 저장 중 오류가 발생했습니다.\n${error instanceof Error ? error.message : '알 수 없는 오류'}`);
-    }
-  };
-
-  // 운동 완료 및 휴식 버튼 클릭
-  const handleExerciseComplete = (exerciseIndex: number) => {
-    if (!program) return;
-    
-    const exercise = program.exercises[exerciseIndex];
-    const isLastExercise = exerciseIndex === program.exercises.length - 1;
-    
-    if (isLastExercise) {
-      handleAllExercisesComplete();
-    } else {
-      const restTime = exercise.rest_seconds || 60;
-      setTimerSeconds(restTime);
-      setRemainingTime(restTime);
-      setIsTimerOpen(true);
-    }
-  };
-
-  // 타이머 스킵
-  const handleTimerSkip = () => {
-    setIsTimerOpen(false);
-    moveToNextExercise();
-  };
+  }, [params, session.actions]);
 
   if (!program) {
     return (
@@ -230,58 +92,8 @@ export default function WorkoutDetailPage({ params }: Props) {
     );
   }
 
-  // 입력값 검증
-  const validateInput = (value: string, field: 'weight' | 'reps'): string | null => {
-    if (value.trim() === '') return null;
-    
-    const numValue = parseFloat(value);
-    if (isNaN(numValue) || numValue <= 0) {
-      return field === 'weight' ? '무게는 양수여야 합니다' : '횟수는 양의 정수여야 합니다';
-    }
-    
-    if (field === 'reps' && !Number.isInteger(numValue)) {
-      return '횟수는 정수여야 합니다';
-    }
-    
-    return null;
-  };
-
-  // 세트 입력값 업데이트
-  const updateSetInput = (exerciseId: string, setIndex: number, field: keyof SetInput, value: string) => {
-    if (value !== '' && !/^\d*\.?\d*$/.test(value)) {
-      return;
-    }
-    
-    setExerciseInputs(prev => ({
-      ...prev,
-      [exerciseId]: prev[exerciseId].map((set, idx) => 
-        idx === setIndex ? { ...set, [field]: value } : set
-      )
-    }));
-
-    const error = validateInput(value, field);
-    setErrors(prev => ({
-      ...prev,
-      [exerciseId]: {
-        ...prev[exerciseId],
-        [setIndex]: {
-          ...prev[exerciseId]?.[setIndex],
-          [field]: error,
-        },
-      },
-    }));
-  };
-
-  // 현재 운동의 입력이 유효한지 확인
-  const isCurrentExerciseValid = () => {
-    if (!program) return false;
-    const exercise = program.exercises[currentExerciseIndex];
-    const inputs = exerciseInputs[exercise.id] || [];
-    return inputs.some(set => set.weight.trim() !== '' && set.reps.trim() !== '');
-  };
-
   // 진행률 계산
-  const progressPercentage = ((currentExerciseIndex) / program.exercises.length) * 100;
+  const progressPercentage = ((session.currentIndex) / program.exercises.length) * 100;
 
   return (
     <div className="min-h-screen px-4 pt-6 pb-32 bg-gray-50">
@@ -302,7 +114,7 @@ export default function WorkoutDetailPage({ params }: Props) {
           <div className="flex items-center justify-between mb-2">
             <span className="text-sm font-medium text-slate-600">진행 상황</span>
             <span className="text-sm font-bold text-blue-600">
-              {currentExerciseIndex + 1} / {program.exercises.length}
+              {session.currentIndex + 1} / {program.exercises.length}
             </span>
           </div>
           <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
@@ -316,9 +128,9 @@ export default function WorkoutDetailPage({ params }: Props) {
         {/* 운동 목록 */}
         <section className="flex flex-col gap-4">
           {program.exercises.map((exercise, exerciseIndex) => {
-            const isCompleted = exerciseIndex < currentExerciseIndex;
-            const isCurrent = exerciseIndex === currentExerciseIndex;
-            const isLocked = exerciseIndex > currentExerciseIndex;
+            const isCompleted = exerciseIndex < session.currentIndex;
+            const isCurrent = exerciseIndex === session.currentIndex;
+            const isLocked = exerciseIndex > session.currentIndex;
             const isLastExercise = exerciseIndex === program.exercises.length - 1;
 
             return (
@@ -404,10 +216,10 @@ export default function WorkoutDetailPage({ params }: Props) {
                               type="text"
                               inputMode="numeric"
                               placeholder="kg"
-                              value={exerciseInputs[exercise.id]?.[setIndex]?.weight || ""}
-                              onChange={(e) => updateSetInput(exercise.id, setIndex, "weight", e.target.value)}
+                              value={session.inputs[exercise.id]?.[setIndex]?.weight || ""}
+                              onChange={(e) => session.actions.updateInput(exercise.id, setIndex, "weight", e.target.value)}
                               className={`w-full p-3 border rounded-lg text-center font-medium focus:outline-none focus:ring-2 ${
-                                errors[exercise.id]?.[setIndex]?.weight
+                                session.errors[exercise.id]?.[setIndex]?.weight
                                   ? "border-red-300 focus:ring-red-500"
                                   : "border-gray-300 focus:ring-blue-500"
                               }`}
@@ -420,10 +232,10 @@ export default function WorkoutDetailPage({ params }: Props) {
                               type="text"
                               inputMode="numeric"
                               placeholder="회"
-                              value={exerciseInputs[exercise.id]?.[setIndex]?.reps || ""}
-                              onChange={(e) => updateSetInput(exercise.id, setIndex, "reps", e.target.value)}
+                              value={session.inputs[exercise.id]?.[setIndex]?.reps || ""}
+                              onChange={(e) => session.actions.updateInput(exercise.id, setIndex, "reps", e.target.value)}
                               className={`w-full p-3 border rounded-lg text-center font-medium focus:outline-none focus:ring-2 ${
-                                errors[exercise.id]?.[setIndex]?.reps
+                                session.errors[exercise.id]?.[setIndex]?.reps
                                   ? "border-red-300 focus:ring-red-500"
                                   : "border-gray-300 focus:ring-blue-500"
                               }`}
@@ -437,17 +249,17 @@ export default function WorkoutDetailPage({ params }: Props) {
                     {/* 버튼 구분선 */}
                     <div className="mt-6 pt-5 border-t-2 border-dashed border-gray-200">
                       <button
-                        onClick={() => handleExerciseComplete(exerciseIndex)}
-                        disabled={!isCurrentExerciseValid() || isSaving}
+                        onClick={() => session.actions.completeExercise(exerciseIndex)}
+                        disabled={!session.actions.isCurrentValid() || session.isSaving}
                         className={`w-full py-4 rounded-xl font-semibold text-lg transition-all flex items-center justify-center gap-2 ${
-                          isCurrentExerciseValid() && !isSaving
+                          session.actions.isCurrentValid() && !session.isSaving
                             ? isLastExercise
                               ? "bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white shadow-lg ring-2 ring-green-300 ring-offset-2"
                               : "bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white shadow-lg ring-2 ring-blue-300 ring-offset-2"
                             : "bg-gray-200 text-gray-400 cursor-not-allowed"
                         }`}
                       >
-                      {isSaving ? (
+                      {session.isSaving ? (
                         <>
                           <svg className="animate-spin h-5 w-5" viewBox="0 0 24 24">
                             <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
@@ -474,7 +286,7 @@ export default function WorkoutDetailPage({ params }: Props) {
                 {isCompleted && (
                   <div className="px-4 pb-4">
                     <div className="flex flex-wrap gap-2">
-                      {exerciseInputs[exercise.id]?.map((set, idx) => (
+                      {session.inputs[exercise.id]?.map((set, idx) => (
                         set.weight && set.reps ? (
                           <span key={idx} className="text-xs bg-green-100 text-green-800 px-2 py-1 rounded">
                             {idx + 1}세트: {set.weight}kg × {set.reps}회
@@ -492,11 +304,11 @@ export default function WorkoutDetailPage({ params }: Props) {
         {/* 오늘의 운동 완료하기 버튼 */}
         <div className="mt-8 pb-8">
           <button
-            onClick={handleAllExercisesComplete}
-            disabled={isSaving}
+            onClick={session.actions.completeAll}
+            disabled={session.isSaving}
             className="w-full py-4 bg-slate-700 hover:bg-slate-800 text-white rounded-xl font-semibold text-lg transition-colors shadow-md flex items-center justify-center gap-2"
           >
-            {isSaving ? (
+            {session.isSaving ? (
               <>
                 <svg className="animate-spin h-5 w-5" viewBox="0 0 24 24">
                   <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
@@ -518,7 +330,7 @@ export default function WorkoutDetailPage({ params }: Props) {
       </div>
 
       {/* 휴식 타이머 모달 */}
-      {isTimerOpen && (
+      {timer.isOpen && (
         <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center p-4 z-50">
           <div className="bg-white rounded-2xl p-8 max-w-sm w-full text-center">
             <div className="mb-6">
@@ -529,7 +341,7 @@ export default function WorkoutDetailPage({ params }: Props) {
             
             <div className="mb-8">
               <div className="text-6xl font-bold text-blue-600 mb-6 text-center">
-                {formatSeconds(remainingTime)}
+                {formatSeconds(timer.remaining)}
               </div>
               
               <div className="flex justify-center">
@@ -538,7 +350,7 @@ export default function WorkoutDetailPage({ params }: Props) {
                   <circle
                     cx="80" cy="80" r="70" fill="none" stroke="#3b82f6" strokeWidth="10"
                     strokeDasharray={2 * Math.PI * 70}
-                    strokeDashoffset={2 * Math.PI * 70 * (1 - remainingTime / timerSeconds)}
+                    strokeDashoffset={2 * Math.PI * 70 * (1 - timer.remaining / timer.total)}
                     strokeLinecap="round"
                     className="transition-all duration-1000"
                   />
@@ -546,17 +358,17 @@ export default function WorkoutDetailPage({ params }: Props) {
               </div>
             </div>
 
-            {currentExerciseIndex + 1 < program.exercises.length && (
+            {session.currentIndex + 1 < program.exercises.length && (
               <div className="mb-6 p-4 bg-gray-50 rounded-xl">
                 <p className="text-sm text-slate-500 mb-1">다음 운동</p>
                 <p className="font-semibold text-slate-800">
-                  {program.exercises[currentExerciseIndex + 1].name}
+                  {program.exercises[session.currentIndex + 1].name}
                 </p>
               </div>
             )}
 
             <button
-              onClick={handleTimerSkip}
+              onClick={timer.skip}
               className="w-full py-4 bg-blue-600 text-white rounded-xl font-semibold hover:bg-blue-700 transition-colors shadow-md"
             >
               다음 운동 시작하기
@@ -566,7 +378,7 @@ export default function WorkoutDetailPage({ params }: Props) {
       )}
 
       {/* 운동 완료 팝업 */}
-      {showCompletionModal && (
+      {session.showCompletionModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
           <div className="bg-white rounded-2xl p-6 max-w-md w-full max-h-[80vh] overflow-y-auto">
             <div className="text-center mb-6">
@@ -581,7 +393,7 @@ export default function WorkoutDetailPage({ params }: Props) {
               <h3 className="font-semibold text-slate-800 mb-3">오늘의 운동 기록</h3>
               <div className="space-y-3">
                 {program?.exercises.map((exercise) => {
-                  const inputs = exerciseInputs[exercise.id] || [];
+                  const inputs = session.inputs[exercise.id] || [];
                   const completedSets = inputs.filter(set => set.weight.trim() !== '' && set.reps.trim() !== '');
                   
                   if (completedSets.length === 0) return null;
