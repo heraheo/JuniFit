@@ -62,7 +62,8 @@ export default function WorkoutDetailPage({ params }: Props) {
       setLoading(false);
     }
     fetchProgram();
-  }, [params, session.actions]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [params]);
 
   if (!program) {
     return (

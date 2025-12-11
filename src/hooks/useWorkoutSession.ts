@@ -74,12 +74,19 @@ export function useWorkoutSession({
       return;
     }
     
-    setInputs(prev => ({
-      ...prev,
-      [exerciseId]: prev[exerciseId].map((set, idx) => 
-        idx === setIndex ? { ...set, [field]: value } : set
-      )
-    }));
+    setInputs(prev => {
+      // inputs[exerciseId]가 존재하지 않으면 초기화
+      if (!prev[exerciseId]) {
+        return prev;
+      }
+      
+      return {
+        ...prev,
+        [exerciseId]: prev[exerciseId].map((set, idx) => 
+          idx === setIndex ? { ...set, [field]: value } : set
+        )
+      };
+    });
 
     const error = validateInput(value, field);
     setErrors(prev => ({
