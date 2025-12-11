@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { ArrowLeft, Calendar, Dumbbell, TrendingUp, CheckCircle } from "lucide-react";
 import { getDashboardData } from "@/lib/api";
+import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
 
 type DashboardData = {
   totalSessions: number;
@@ -79,9 +80,7 @@ export default function DashboardPage() {
             </Link>
             <h1 className="text-xl font-bold">나의 운동 대시보드</h1>
           </header>
-          <div className="text-center py-12">
-            <p className="text-slate-600">로딩 중...</p>
-          </div>
+          <LoadingSpinner />
         </div>
       </div>
     );

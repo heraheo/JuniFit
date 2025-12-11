@@ -5,6 +5,8 @@ import Link from "next/link";
 import { ArrowLeft, Trash2, Edit, ChevronDown, ChevronRight, Dumbbell } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import type { Program, ProgramExercise } from "@/types/database";
+import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
+import { EmptyState } from "@/components/ui/EmptyState";
 
 type ProgramWithExercises = Program & {
   exercises?: ProgramExercise[];
@@ -117,27 +119,15 @@ export default function ProgramsManagePage() {
 
         {/* Loading State */}
         {loading ? (
-          <div className="text-center py-12">
-            <p className="text-slate-600">로딩 중...</p>
-          </div>
+          <LoadingSpinner />
         ) : programs.length === 0 ? (
-          /* Empty State - 개선된 UI */
-          <div className="bg-white rounded-xl shadow-md p-8 text-center">
-            <div className="mb-4">
-              <Dumbbell className="w-16 h-16 mx-auto text-slate-300" />
-            </div>
-            <h2 className="text-lg font-semibold text-slate-800 mb-2">등록된 프로그램이 없습니다</h2>
-            <p className="text-slate-600 mb-6">
-              나만의 운동 프로그램을 만들어보세요.<br />
-              체계적인 운동 관리를 시작할 수 있습니다.
-            </p>
-            <Link
-              href="/templates/new"
-              className="inline-block bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-colors font-medium"
-            >
-              새 프로그램 만들기
-            </Link>
-          </div>
+          <EmptyState
+            icon={Dumbbell}
+            title="등록된 프로그램이 없습니다"
+            description="나만의 운동 프로그램을 만들어보세요. 체계적인 운동 관리를 시작할 수 있습니다."
+            actionLabel="새 프로그램 만들기"
+            actionHref="/templates/new"
+          />
         ) : (
           /* Programs List */
           <section className="space-y-4">

@@ -6,6 +6,8 @@ import { ArrowLeft, Calendar, Dumbbell, ChevronDown, ChevronRight, Trash2, Edit3
 import { getWorkoutLogs, deleteWorkoutSession, updateWorkoutSet } from "@/lib/api";
 import type { WorkoutSession, WorkoutSet } from "@/types/database";
 import { formatDateWithWeekday, formatTime, calculateDuration, groupSetsByExercise } from "@/lib/utils";
+import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
+import { EmptyState } from "@/components/ui/EmptyState";
 
 type WorkoutLog = WorkoutSession & {
   sets: WorkoutSet[];
@@ -126,20 +128,15 @@ export default function LogsPage() {
 
         {/* 로딩 상태 */}
         {loading ? (
-          <div className="text-center py-12">
-            <p className="text-slate-600">로딩 중...</p>
-          </div>
+          <LoadingSpinner />
         ) : logs.length === 0 ? (
-          <div className="text-center py-12 bg-white rounded-xl shadow-md">
-            <Dumbbell className="w-12 h-12 text-slate-300 mx-auto mb-4" />
-            <p className="text-slate-600 mb-4">아직 운동 기록이 없습니다.</p>
-            <Link
-              href="/workout"
-              className="inline-block bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
-            >
-              운동 시작하기
-            </Link>
-          </div>
+          <EmptyState
+            icon={Dumbbell}
+            title="아직 운동 기록이 없습니다"
+            description="첫 운동을 시작해보세요!"
+            actionLabel="운동 시작하기"
+            actionHref="/workout"
+          />
         ) : (
           <section className="flex flex-col gap-4">
             {logs.map((log) => {
