@@ -14,7 +14,7 @@
     "@supabase/supabase-js": "^2.86.0",
     "lucide-react": "^0.468.0",
     "next": "^16.0.7",
-    "next-pwa": "^5.6.0",
+    "@ducanh2912/next-pwa": "^10.2.9",
     "react": "^19.2.1",
     "react-dom": "^19.2.1"
   },
@@ -27,9 +27,7 @@
     "eslint-config-next": "^16.0.7",
     "postcss": "8.4.34",
     "tailwindcss": "^3.3.2",
-    "typescript": "5.6.2"
-  },
-  "resolutions": {
-    "@types/minimatch": "npm:@types/glob@^8.0.0"
+    "typescript": "5.6.2",
+    "webpack": "^5.96.1"
   }
 }
