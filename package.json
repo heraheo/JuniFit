@@ -28,5 +28,8 @@
     "postcss": "8.4.34",
     "tailwindcss": "^3.3.2",
     "typescript": "5.6.2"
+  },
+  "resolutions": {
+    "@types/minimatch": "npm:@types/glob@^8.0.0"
   }
 }
