@@ -37,6 +37,22 @@ export type WorkoutSet = {
   set_number: number;
   weight: number;
   reps: number;
-  rpe?: number;
+  rpe?: number | null;
   created_at: string;
+};
+
+// 5. 운동 기록 상세 (Workout Log Detail) - API 응답용
+export type WorkoutLogDetail = WorkoutSession & {
+  sets: WorkoutSet[];
+  programTitle?: string;
+  programExercises?: Array<{
+    id: string;
+    name: string;
+    target_sets: number;
+    target_reps: number;
+    order: number;
+    rest_seconds?: number | null;
+    intention?: string | null;
+    note?: string | null;
+  }>;
 };

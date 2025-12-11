@@ -3,6 +3,9 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import Button from "@/components/ui/Button";
+import Input from "@/components/ui/Input";
+import { TABLE_NAMES, AVATAR } from "@/constants";
 
 export default function OnboardingPage() {
   const [nickname, setNickname] = useState("");
@@ -25,8 +28,8 @@ export default function OnboardingPage() {
 
   // 닉네임 기반 아바타 URL 생성
   const avatarUrl = nickname 
-    ? `https://api.dicebear.com/9.x/notionists/svg?seed=${encodeURIComponent(nickname)}`
-    : `https://api.dicebear.com/9.x/notionists/svg?seed=default`;
+    ? `${AVATAR.API_BASE}?seed=${encodeURIComponent(nickname)}`
+    : `${AVATAR.API_BASE}?seed=${AVATAR.DEFAULT_SEED}`;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -46,7 +49,7 @@ export default function OnboardingPage() {
     try {
       // profiles 테이블에 닉네임과 아바타 URL 저장
       const { error } = await supabase
-        .from('profiles')
+        .from(TABLE_NAMES.PROFILES)
         .upsert({
           id: userId,
           nickname: nickname.trim(),
@@ -91,44 +94,29 @@ export default function OnboardingPage() {
           </div>
 
           {/* 닉네임 입력 */}
-          <div>
-            <label htmlFor="nickname" className="block text-sm font-medium text-slate-700 mb-2">
-              닉네임
-            </label>
-            <input
-              id="nickname"
-              type="text"
-              value={nickname}
-              onChange={(e) => setNickname(e.target.value)}
-              placeholder="닉네임을 입력하세요"
-              maxLength={20}
-              className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent text-slate-800"
-              disabled={isLoading}
-              autoFocus
-            />
-            <p className="mt-2 text-xs text-slate-500">
-              입력하면 위의 아바타가 변경됩니다 ({nickname.length}/20)
-            </p>
-          </div>
+          <Input
+            label="닉네임"
+            type="text"
+            value={nickname}
+            onChange={(e) => setNickname(e.target.value)}
+            placeholder="닉네임을 입력하세요"
+            maxLength={20}
+            disabled={isLoading}
+            autoFocus
+            helperText={`입력하면 위의 아바타가 변경됩니다 (${nickname.length}/20)`}
+          />
 
           {/* 시작하기 버튼 */}
-          <button
+          <Button
             type="submit"
-            disabled={isLoading || !nickname.trim()}
-            className="w-full bg-gradient-to-r from-purple-500 to-purple-600 hover:from-purple-600 hover:to-purple-700 text-white font-semibold py-4 px-6 rounded-xl shadow-lg hover:shadow-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+            variant="primary"
+            size="lg"
+            fullWidth
+            disabled={!nickname.trim()}
+            isLoading={isLoading}
           >
-            {isLoading ? (
-              <div className="flex items-center justify-center gap-2">
-                <svg className="animate-spin h-5 w-5" viewBox="0 0 24 24">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                </svg>
-                <span>저장 중...</span>
-              </div>
-            ) : (
-              '시작하기'
-            )}
-          </button>
+            시작하기
+          </Button>
         </form>
 
         {/* 추가 안내 */}

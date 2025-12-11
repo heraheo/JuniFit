@@ -5,6 +5,9 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { ArrowLeft, LogOut, User } from "lucide-react";
 import Link from "next/link";
+import Button from "@/components/ui/Button";
+import Input from "@/components/ui/Input";
+import { TABLE_NAMES, AVATAR } from "@/constants";
 
 type Profile = {
   nickname: string;
@@ -21,8 +24,8 @@ export default function SettingsPage() {
 
   // 닉네임 기반 아바타 URL 생성 (미리보기용)
   const previewAvatarUrl = nickname 
-    ? `https://api.dicebear.com/9.x/notionists/svg?seed=${encodeURIComponent(nickname)}`
-    : `https://api.dicebear.com/9.x/notionists/svg?seed=default`;
+    ? `${AVATAR.API_BASE}?seed=${encodeURIComponent(nickname)}`
+    : `${AVATAR.API_BASE}?seed=${AVATAR.DEFAULT_SEED}`;
 
   useEffect(() => {
     const getProfile = async () => {
@@ -35,7 +38,7 @@ export default function SettingsPage() {
 
       // 프로필 정보 가져오기
       const { data: profileData, error } = await supabase
-        .from('profiles')
+        .from(TABLE_NAMES.PROFILES)
         .select('nickname, avatar_url')
         .eq('id', user.id)
         .single();
@@ -82,10 +85,10 @@ export default function SettingsPage() {
       }
 
       // 닉네임과 새 아바타 URL 저장
-      const newAvatarUrl = `https://api.dicebear.com/9.x/notionists/svg?seed=${encodeURIComponent(nickname.trim())}`;
+      const newAvatarUrl = `${AVATAR.API_BASE}?seed=${encodeURIComponent(nickname.trim())}`;
       
       const { error } = await supabase
-        .from('profiles')
+        .from(TABLE_NAMES.PROFILES)
         .update({
           nickname: nickname.trim(),
           avatar_url: newAvatarUrl,
@@ -177,43 +180,40 @@ export default function SettingsPage() {
             </div>
 
             {/* 닉네임 입력 */}
-            <div>
-              <label htmlFor="nickname" className="block text-sm font-medium text-slate-700 mb-2">
-                닉네임
-              </label>
-              <input
-                id="nickname"
-                type="text"
-                value={nickname}
-                onChange={(e) => setNickname(e.target.value)}
-                placeholder="닉네임을 입력하세요"
-                className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none transition-all"
-                disabled={isSaving}
-              />
-              <p className="mt-2 text-sm text-slate-500">
-                닉네임을 변경하면 아바타도 자동으로 변경됩니다.
-              </p>
-            </div>
+            <Input
+              label="닉네임"
+              type="text"
+              value={nickname}
+              onChange={(e) => setNickname(e.target.value)}
+              placeholder="닉네임을 입력하세요"
+              disabled={isSaving}
+              maxLength={20}
+              helperText="닉네임을 변경하면 아바타도 자동으로 변경됩니다."
+            />
 
             {/* 저장 버튼 */}
-            <button
+            <Button
               type="submit"
-              disabled={isSaving}
-              className="w-full bg-gradient-to-r from-purple-500 to-purple-600 text-white py-3 px-4 rounded-lg font-medium hover:from-purple-600 hover:to-purple-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-md"
+              variant="primary"
+              size="lg"
+              fullWidth
+              isLoading={isSaving}
             >
-              {isSaving ? '저장 중...' : '저장하기'}
-            </button>
+              저장하기
+            </Button>
           </form>
         </div>
 
         {/* 로그아웃 버튼 */}
-        <button
+        <Button
           onClick={handleLogout}
-          className="w-full bg-white rounded-xl shadow-md p-4 flex items-center justify-center gap-3 hover:shadow-lg transition-shadow text-red-600 hover:bg-red-50"
+          variant="danger"
+          size="lg"
+          fullWidth
         >
           <LogOut className="w-5 h-5" />
-          <span className="text-base font-medium">로그아웃</span>
-        </button>
+          로그아웃
+        </Button>
       </div>
     </div>
   );

@@ -10,19 +10,9 @@ import {
   updateWorkoutSet,
   updateSessionNote,
 } from "@/lib/api";
-import type { WorkoutSession, WorkoutSet } from "@/types/database";
+import type { WorkoutSet, WorkoutLogDetail } from "@/types/database";
 
-type WorkoutLog = WorkoutSession & {
-  sets: WorkoutSet[];
-  programTitle?: string;
-  programExercises?: Array<{
-    id: string;
-    name: string;
-    target_sets: number;
-    target_reps: number;
-    order: number;
-  }>;
-};
+type WorkoutLog = WorkoutLogDetail;
 
 type EditableSet = {
   id: string;
@@ -31,7 +21,7 @@ type EditableSet = {
   set_number: number;
   weight: number;
   reps: number;
-  rpe?: number;
+  rpe?: number | null;
   created_at: string;
   isEditing?: boolean;
   editWeight?: number;
@@ -109,7 +99,7 @@ export default function WorkoutLogDetailPage({
   };
 
   // 운동 시간 계산
-  const getDuration = (startedAt: string, endedAt?: string) => {
+  const getDuration = (startedAt: string, endedAt?: string | null) => {
     if (!endedAt) return "진행 중";
     const start = new Date(startedAt);
     const end = new Date(endedAt);

@@ -37,3 +37,51 @@ export function formatTime(dateString: string): string {
     hour12: true
   });
 }
+
+// 날짜 + 요일 포맷 (YYYY년 M월 D일 (요일))
+export function formatDateWithWeekday(dateString: string): string {
+  const date = new Date(dateString);
+  
+  return date.toLocaleDateString('ko-KR', {
+    timeZone: 'Asia/Seoul',
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+    weekday: 'short'
+  });
+}
+
+// 초를 MM:SS 형식으로 변환
+export function formatSeconds(seconds: number): string {
+  const mins = Math.floor(seconds / 60);
+  const secs = seconds % 60;
+  return `${mins}:${secs.toString().padStart(2, '0')}`;
+}
+
+// 운동 지속 시간 계산
+export function calculateDuration(startedAt: string, endedAt?: string | null): string {
+  if (!endedAt) return "진행 중";
+  
+  const start = new Date(startedAt);
+  const end = new Date(endedAt);
+  const diffMs = end.getTime() - start.getTime();
+  const diffMins = Math.round(diffMs / 60000);
+
+  if (diffMins < 60) {
+    return `${diffMins}분`;
+  }
+  
+  const hours = Math.floor(diffMins / 60);
+  const mins = diffMins % 60;
+  return `${hours}시간 ${mins}분`;
+}
+
+// 숫자를 천 단위 콤마로 포맷
+export function formatNumber(num: number): string {
+  return num.toLocaleString("ko-KR");
+}
+
+// 클래스명 병합 유틸리티
+export function cn(...classes: (string | undefined | null | false)[]): string {
+  return classes.filter(Boolean).join(' ');
+}
