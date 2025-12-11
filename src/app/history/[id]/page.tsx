@@ -250,24 +250,6 @@ export default function WorkoutLogDetailPage({
           </button>
         </header>
 
-        {/* 디버그 정보 (임시) */}
-        <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-4 mb-4 text-xs">
-          <p className="font-bold mb-2">디버그 정보:</p>
-          <p>Program ID: {log.program_id || 'null'}</p>
-          <p>Program Title: {log.programTitle || 'null'}</p>
-          <p>Program Exercises Count: {log.programExercises?.length || 0}</p>
-          <p>Completed Sets Count: {log.sets?.length || 0}</p>
-          <p>Editable Sets Count: {editableSets.length}</p>
-          {log.programExercises && log.programExercises.length > 0 && (
-            <div className="mt-2">
-              <p className="font-semibold">Program Exercises:</p>
-              {log.programExercises.map((ex, idx) => (
-                <p key={idx}>- {ex.name} ({ex.target_sets}세트)</p>
-              ))}
-            </div>
-          )}
-        </div>
-
         {/* 세션 정보 */}
         <div className="bg-white rounded-xl shadow-md p-4 mb-4">
           <div className="flex items-center gap-2 mb-2">

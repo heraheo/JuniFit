@@ -193,6 +193,32 @@ export async function getWorkoutLogs() {
         console.error('Error fetching workout sets:', setsError);
       }
 
+      // 프로그램 운동 목록을 가져와서 순서 정보 매핑
+      let exerciseOrderMap: Record<string, number> = {};
+      if (session.program_id) {
+        const { data: exercises } = await supabase
+          .from('program_exercises')
+          .select('name, order')
+          .eq('program_id', session.program_id);
+        
+        if (exercises) {
+          exercises.forEach(ex => {
+            exerciseOrderMap[ex.name] = ex.order || 999;
+          });
+        }
+      }
+
+      // 세트를 운동 순서대로 정렬
+      const sortedSets = sets?.sort((a, b) => {
+        const orderA = exerciseOrderMap[a.exercise_name] || 999;
+        const orderB = exerciseOrderMap[b.exercise_name] || 999;
+        if (orderA !== orderB) {
+          return orderA - orderB;
+        }
+        // 같은 운동이면 세트 번호로 정렬
+        return a.set_number - b.set_number;
+      }) || [];
+
       // 프로그램 제목 조회 (있는 경우)
       let programTitle = undefined;
       if (session.program_id) {
@@ -209,7 +235,7 @@ export async function getWorkoutLogs() {
 
       return {
         ...session,
-        sets: sets || [],
+        sets: sortedSets,
         programTitle,
       };
     })
@@ -298,62 +324,50 @@ export async function getWorkoutLogById(sessionId: string) {
     console.error('Error fetching workout sets:', setsError);
   }
 
-  // 프로그램 제목 및 운동 목록 조회
-  let programTitle = undefined;
-  let programExercises: ProgramExercise[] = [];
+  // 프로그램 운동 목록을 가져와서 순서 정보 매핑
+  let exerciseOrderMap: Record<string, number> = {};
   if (session.program_id) {
-    console.log('[API] Fetching program for program_id:', session.program_id);
+    const { data: exercises } = await supabase
+      .from('program_exercises')
+      .select('name, order')
+      .eq('program_id', session.program_id);
     
-    const { data: program, error: programError } = await supabase
+    if (exercises) {
+      exercises.forEach(ex => {
+        exerciseOrderMap[ex.name] = ex.order || 999;
+      });
+    }
+  }
+
+  // 세트를 운동 순서대로 정렬
+  const sortedSets = sets?.sort((a, b) => {
+    const orderA = exerciseOrderMap[a.exercise_name] || 999;
+    const orderB = exerciseOrderMap[b.exercise_name] || 999;
+    if (orderA !== orderB) {
+      return orderA - orderB;
+    }
+    // 같은 운동이면 세트 번호로 정렬
+    return a.set_number - b.set_number;
+  }) || [];
+
+  // 프로그램 제목 조회
+  let programTitle = undefined;
+  if (session.program_id) {
+    const { data: program } = await supabase
       .from('programs')
       .select('title')
       .eq('id', session.program_id)
       .single();
     
-    if (programError) {
-      console.error('[API] Error fetching program:', programError);
-    }
-    
     if (program) {
       programTitle = program.title;
-      console.log('[API] Program title:', programTitle);
     }
-
-    // 프로그램의 운동 목록 조회
-    const { data: exercises, error: exercisesError } = await supabase
-      .from('program_exercises')
-      .select('*')
-      .eq('program_id', session.program_id)
-      .order('order', { ascending: true });
-    
-    if (exercisesError) {
-      console.error('[API] Error fetching program exercises:', exercisesError);
-    }
-    
-    if (exercises) {
-      programExercises = exercises;
-      console.log('[API] Program exercises loaded:', exercises.length, 'exercises');
-      console.log('[API] Exercises:', exercises.map(e => `${e.name} (${e.target_sets} sets)`));
-    } else {
-      console.warn('[API] No exercises found for program_id:', session.program_id);
-    }
-  } else {
-    console.warn('[API] No program_id in session');
   }
-
-  console.log('[API] Returning workout log with:', {
-    sessionId: session.id,
-    programId: session.program_id,
-    programTitle,
-    exercisesCount: programExercises.length,
-    setsCount: sets?.length || 0
-  });
 
   return {
     ...session,
-    sets: sets || [],
+    sets: sortedSets,
     programTitle,
-    programExercises,
   };
 }
 
