@@ -6,6 +6,8 @@ import { useRouter, useParams } from "next/navigation";
 import { Trash, ArrowLeft } from "lucide-react";
 import Button from "@/components/ui/Button";
 import Input from "@/components/ui/Input";
+import { Modal } from "@/components/ui/Modal";
+import { Card } from "@/components/ui/Card";
 import { createClient } from "@/lib/supabase/client";
 import type { Program, ProgramExercise } from "@/types/database";
 import { validateNumericInput, validateProgramForm, type ExerciseInput } from "@/lib/validation";
@@ -234,7 +236,7 @@ export default function ProgramEditPage() {
         </header>
 
         {/* Basic info */}
-        <section className="bg-white rounded-xl shadow-md p-4 mb-6">
+        <Card padding="sm" className="mb-6">
           <Input
             label="프로그램 제목"
             value={title}
@@ -259,12 +261,12 @@ export default function ProgramEditPage() {
             error={errors.description}
             rows={3}
           />
-        </section>
+        </Card>
 
         {/* Exercises list */}
         <section className="space-y-4 mb-6">
           {exercises.map((ex, i) => (
-            <div key={ex.id} className="bg-white rounded-xl shadow-md p-4 border border-gray-100">
+            <Card key={ex.id} padding="sm">
               <div className="mb-3 flex items-center gap-3">
                 <div className="flex-1">
                   <Input
@@ -371,7 +373,7 @@ export default function ProgramEditPage() {
               {errors.exercises?.[ex.id]?.summary && (
                 <p className="text-sm text-red-600 mt-2">{errors.exercises[ex.id].summary}</p>
               )}
-            </div>
+            </Card>
           ))}
 
           <Button
@@ -402,31 +404,23 @@ export default function ProgramEditPage() {
       </div>
 
       {/* Success Modal */}
-      {showSuccessModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl shadow-2xl p-6 max-w-sm w-full">
-            <div className="text-center mb-6">
-              <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                <svg className="w-8 h-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                </svg>
-              </div>
-              <h2 className="text-2xl font-bold text-slate-800 mb-2">수정 완료!</h2>
-              <p className="text-slate-600">
-                <span className="font-semibold text-blue-600">{title}</span> 프로그램이 수정되었습니다.
-              </p>
-            </div>
-            <Button
-              onClick={() => router.push('/programs/manage')}
-              variant="primary"
-              fullWidth
-              className="py-3"
-            >
-              프로그램 목록으로
-            </Button>
-          </div>
-        </div>
-      )}
+      <Modal
+        isOpen={showSuccessModal}
+        onClose={() => router.push('/programs/manage')}
+        variant="success"
+        title="수정 완료!"
+        description={`${title} 프로그램이 수정되었습니다.`}
+        icon={
+          <svg className="w-8 h-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+          </svg>
+        }
+        actions={
+          <Button onClick={() => router.push('/programs/manage')} variant="primary" fullWidth className="py-3">
+            프로그램 목록으로
+          </Button>
+        }
+      />
     </div>
   );
 }

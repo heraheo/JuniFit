@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { ArrowLeft, Dumbbell } from "lucide-react";
+import { Card } from "@/components/ui/Card";
 import { getPrograms } from "@/lib/api";
 import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
 import { EmptyState } from "@/components/ui/EmptyState";
@@ -36,7 +37,7 @@ export default function WorkoutPage() {
           <section className="flex flex-col gap-6">
             {programs?.map((program) => (
               <Link key={program.id} href={`/workout/${program.id}`}>
-                <div className="bg-white rounded-xl shadow-md p-8 hover:shadow-lg transition-all duration-200 cursor-pointer border border-gray-100">
+                <Card padding="lg" hover>
                   <h3 className="text-xl font-semibold text-slate-800 mb-4">
                     {program.title}
                   </h3>
@@ -48,7 +49,7 @@ export default function WorkoutPage() {
                       운동 {program.exerciseCount}개
                     </span>
                   </div>
-                </div>
+                </Card>
               </Link>
             ))}
           </section>

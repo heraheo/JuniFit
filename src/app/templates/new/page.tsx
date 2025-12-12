@@ -8,6 +8,8 @@ import { createClient } from "@/lib/supabase/client";
 import { useProgramForm } from "@/hooks/useProgramForm";
 import Button from "@/components/ui/Button";
 import Input from "@/components/ui/Input";
+import { Modal } from "@/components/ui/Modal";
+import { Card } from "@/components/ui/Card";
 
 export default function Page() {
   const router = useRouter();
@@ -131,7 +133,7 @@ export default function Page() {
         </header>
 
         {/* Basic info */}
-        <section className="bg-white rounded-xl shadow-md p-4 mb-6">
+        <Card padding="sm" className="mb-6">
           <Input
             label="프로그램 제목"
             value={formState.title}
@@ -150,12 +152,12 @@ export default function Page() {
             error={validation.errors.description}
             rows={3}
           />
-        </section>
+        </Card>
 
         {/* Exercises list */}
         <section className="space-y-4 mb-6">
           {formState.exercises.map((ex, i) => (
-            <div key={ex.id} className="bg-white rounded-xl shadow-md p-4 border border-gray-100">
+            <Card key={ex.id} padding="sm">
               <div className="mb-3 flex items-center gap-3">
                 <div className="flex-1">
                   <Input
@@ -259,7 +261,7 @@ export default function Page() {
               {validation.errors.exercises?.[ex.id]?.summary && (
                 <p className="text-sm text-red-600 mt-2">{validation.errors.exercises[ex.id].summary}</p>
               )}
-            </div>
+            </Card>
           ))}
 
           <Button
@@ -291,67 +293,58 @@ export default function Page() {
       </div>
 
       {/* Success Modal */}
-      {showSuccessModal && savedProgramInfo && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl shadow-2xl p-6 max-w-sm w-full">
-            <div className="text-center mb-6">
-              <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                <svg className="w-8 h-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                </svg>
-              </div>
-              <h2 className="text-2xl font-bold text-slate-800 mb-2">저장 완료!</h2>
-              <p className="text-slate-600">
-                <span className="font-semibold text-blue-600">{savedProgramInfo.title}</span> 프로그램이 저장되었습니다.
-              </p>
-            </div>
-            <Button
-              onClick={() => router.push('/')}
-              variant="primary"
-              fullWidth
-            >
-              홈으로
-            </Button>
-          </div>
-        </div>
-      )}
+      <Modal
+        isOpen={showSuccessModal && !!savedProgramInfo}
+        onClose={() => router.push('/')}
+        variant="success"
+        title="저장 완료!"
+        description={savedProgramInfo ? `${savedProgramInfo.title} 프로그램이 저장되었습니다.` : ""}
+        icon={
+          <svg className="w-8 h-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+          </svg>
+        }
+        actions={
+          <Button onClick={() => router.push('/')} variant="primary" fullWidth>
+            홈으로
+          </Button>
+        }
+      />
 
       {/* Duplicate Name Modal */}
-      {showDuplicateModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-2xl p-6 max-w-md w-full">
-            <div className="text-center mb-6">
-              <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                <span className="text-2xl">⚠️</span>
-              </div>
-              <h2 className="text-2xl font-bold text-slate-800 mb-2">중복된 프로그램 이름</h2>
-              <p className="text-slate-600">이미 존재하는 프로그램 이름입니다</p>
-            </div>
-
-            <div className="mb-6 bg-red-50 rounded-lg p-4 border border-red-200">
-              <div className="text-center">
-                <p className="text-sm text-slate-600 mb-2">중복된 이름</p>
-                <p className="font-semibold text-slate-800 text-lg">&ldquo;{duplicateTitle}&rdquo;</p>
-              </div>
-            </div>
-
-            <p className="text-sm text-slate-600 text-center mb-6">
-              다른 이름을 사용해주세요
-            </p>
-
-            <Button
-              onClick={() => {
-                setShowDuplicateModal(false);
-                setDuplicateTitle("");
-              }}
-              variant="primary"
-              fullWidth
-            >
-              확인
-            </Button>
+      <Modal
+        isOpen={showDuplicateModal}
+        onClose={() => {
+          setShowDuplicateModal(false);
+          setDuplicateTitle("");
+        }}
+        variant="error"
+        title="중복된 프로그램 이름"
+        description="이미 존재하는 프로그램 이름입니다"
+        icon={<span className="text-2xl">⚠️</span>}
+        actions={
+          <Button
+            onClick={() => {
+              setShowDuplicateModal(false);
+              setDuplicateTitle("");
+            }}
+            variant="primary"
+            fullWidth
+          >
+            확인
+          </Button>
+        }
+      >
+        <div className="mb-6 bg-red-50 rounded-lg p-4 border border-red-200">
+          <div className="text-center">
+            <p className="text-sm text-slate-600 mb-2">중복된 이름</p>
+            <p className="font-semibold text-slate-800 text-lg">&ldquo;{duplicateTitle}&rdquo;</p>
           </div>
         </div>
-      )}
+        <p className="text-sm text-slate-600 text-center">
+          다른 이름을 사용해주세요
+        </p>
+      </Modal>
     </div>
   );
 }

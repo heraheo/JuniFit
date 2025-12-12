@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, Trash2, Save, X, Edit2, Calendar } from "lucide-react";
 import Button from "@/components/ui/Button";
+import { Card } from "@/components/ui/Card";
 import {
   getWorkoutLogById,
   deleteWorkoutSession,
@@ -254,7 +255,7 @@ export default function WorkoutLogDetailPage({
         </header>
 
         {/* 세션 정보 */}
-        <div className="bg-white rounded-xl shadow-md p-4 mb-4">
+        <Card padding="sm" className="mb-4">
           <div className="flex items-center gap-2 mb-2">
             <Calendar className="w-5 h-5 text-blue-600" />
             <span className="text-lg font-semibold text-slate-800">
@@ -277,14 +278,14 @@ export default function WorkoutLogDetailPage({
               총 {totalSets}세트
             </span>
           </div>
-        </div>
+        </Card>
 
         {/* 운동별 세트 정보 */}
         <div className="space-y-4 mb-4">
           {Object.entries(groupedSets).map(([exerciseName, sets]) => (
-            <div
+            <Card
               key={exerciseName}
-              className="bg-white rounded-xl shadow-md p-4"
+              padding="sm"
             >
               <h3 className="font-bold text-slate-800 mb-3">{exerciseName}</h3>
               <div className="space-y-2">
@@ -419,12 +420,12 @@ export default function WorkoutLogDetailPage({
                     </div>
                   ))}
               </div>
-            </div>
+            </Card>
           ))}
         </div>
 
         {/* 노트 섹션 */}
-        <div className="bg-white rounded-xl shadow-md p-4">
+        <Card padding="sm">
           <div className="flex items-center justify-between mb-2">
             <h3 className="font-bold text-slate-800">메모</h3>
             {!isEditingNote && (
@@ -477,7 +478,7 @@ export default function WorkoutLogDetailPage({
               {log.note || "메모가 없습니다."}
             </p>
           )}
-        </div>
+        </Card>
       </div>
     </div>
   );

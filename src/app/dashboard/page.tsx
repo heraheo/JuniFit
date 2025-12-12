@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { ArrowLeft, Calendar, Dumbbell, TrendingUp, CheckCircle } from "lucide-react";
+import { Card } from "@/components/ui/Card";
 import { getDashboardData } from "@/lib/api";
 import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
 
@@ -156,7 +157,7 @@ export default function DashboardPage() {
         </section>
 
         {/* 이번 달 운동 달력 */}
-        <section className="bg-white rounded-xl shadow-md p-5">
+        <Card padding="md">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-lg font-semibold text-slate-800">
               {data.currentYear}년 {getMonthName(data.currentMonth)} 출석 현황
@@ -233,7 +234,7 @@ export default function DashboardPage() {
               )}
             </p>
           </div>
-        </section>
+        </Card>
 
         {/* 동기부여 메시지 */}
         <section className="mt-6 bg-gradient-to-r from-slate-800 to-slate-900 rounded-xl p-5 text-white shadow-lg">

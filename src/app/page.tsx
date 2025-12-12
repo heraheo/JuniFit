@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Plus, Play, FolderOpen, History, BarChart3, LogOut, Settings } from "lucide-react";
+import { Card } from "@/components/ui/Card";
 import { createClient } from "@/lib/supabase/client";
 import type { User } from "@supabase/supabase-js";
 
@@ -156,21 +157,19 @@ export default function Page() {
         </div>
 
         {/* 프로그램 관리 버튼 */}
-        <Link
-          href="/programs/manage"
-          className="w-full bg-white rounded-xl shadow-md p-4 flex items-center justify-center gap-3 hover:shadow-lg transition-shadow border border-gray-100 mb-3"
-        >
-          <FolderOpen className="w-5 h-5 text-blue-600" />
-          <span className="text-base font-medium text-slate-800">저장된 프로그램 목록 관리</span>
+        <Link href="/programs/manage" className="w-full mb-3">
+          <Card padding="sm" hover className="flex items-center justify-center gap-3">
+            <FolderOpen className="w-5 h-5 text-blue-600" />
+            <span className="text-base font-medium text-slate-800">저장된 프로그램 목록 관리</span>
+          </Card>
         </Link>
 
         {/* 운동 기록 보기 버튼 */}
-        <Link
-          href="/history"
-          className="w-full bg-white rounded-xl shadow-md p-4 flex items-center justify-center gap-3 hover:shadow-lg transition-shadow border border-gray-100 mb-3"
-        >
-          <History className="w-5 h-5 text-green-600" />
-          <span className="text-base font-medium text-slate-800">지난 운동 기록 보기</span>
+        <Link href="/history" className="w-full mb-3">
+          <Card padding="sm" hover className="flex items-center justify-center gap-3">
+            <History className="w-5 h-5 text-green-600" />
+            <span className="text-base font-medium text-slate-800">지난 운동 기록 보기</span>
+          </Card>
         </Link>
 
         {/* 대시보드 버튼 */}

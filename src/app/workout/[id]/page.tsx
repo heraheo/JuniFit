@@ -10,6 +10,7 @@ import { formatSeconds } from "@/lib/utils";
 import { useRestTimer } from "@/hooks/useRestTimer";
 import { useWorkoutSession } from "@/hooks/useWorkoutSession";
 import Button from "@/components/ui/Button";
+import { Card } from "@/components/ui/Card";
 
 
 // 동적 라우트를 위한 params 타입 정의
@@ -79,14 +80,14 @@ export default function WorkoutDetailPage({ params }: Props) {
             </h1>
           </header>
           {!loading && (
-            <div className="bg-white rounded-xl shadow-md p-8 text-center">
+            <Card padding="lg" className="text-center">
               <p className="text-slate-600 mb-4">요청하신 프로그램을 찾을 수 없습니다.</p>
               <Link href="/workout">
                 <Button variant="primary">
                   프로그램 목록으로 돌아가기
                 </Button>
               </Link>
-            </div>
+            </Card>
           )}
         </div>
       </div>
@@ -111,7 +112,7 @@ export default function WorkoutDetailPage({ params }: Props) {
         </header>
 
         {/* 진행 상태 바 */}
-        <div className="bg-white rounded-xl shadow-md p-4 mb-6">
+        <Card padding="sm" className="mb-6">
           <div className="flex items-center justify-between mb-2">
             <span className="text-sm font-medium text-slate-600">진행 상황</span>
             <span className="text-sm font-bold text-blue-600">
@@ -124,7 +125,7 @@ export default function WorkoutDetailPage({ params }: Props) {
               style={{ width: `${progressPercentage}%` }}
             />
           </div>
-        </div>
+        </Card>
 
         {/* 운동 목록 */}
         <section className="flex flex-col gap-4">
