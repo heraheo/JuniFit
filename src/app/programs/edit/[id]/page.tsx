@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter, useParams } from "next/navigation";
 import { Trash, ArrowLeft } from "lucide-react";
 import Button from "@/components/ui/Button";
+import Input from "@/components/ui/Input";
 import { createClient } from "@/lib/supabase/client";
 import type { Program, ProgramExercise } from "@/types/database";
 import { validateNumericInput, validateProgramForm, type ExerciseInput } from "@/lib/validation";
@@ -234,30 +235,30 @@ export default function ProgramEditPage() {
 
         {/* Basic info */}
         <section className="bg-white rounded-xl shadow-md p-4 mb-6">
-          <label className="block text-sm font-medium text-slate-700 mb-2">프로그램 제목</label>
-          <input
+          <Input
+            label="프로그램 제목"
             value={title}
             onChange={(e) => {
               setTitle(e.target.value);
               setErrors((prev) => ({ ...prev, title: undefined }));
             }}
-            className="w-full p-3 border rounded-lg mb-4 focus:outline-none focus:ring-2 focus:ring-blue-500"
             placeholder="제목을 입력하세요"
+            error={errors.title}
+            className="mb-4"
           />
-          {errors.title && <p className="text-sm text-red-600 mt-1">{errors.title}</p>}
 
-          <label className="block text-sm font-medium text-slate-700 mb-2">전체 가이드</label>
-          <textarea
+          <Input
+            as="textarea"
+            label="전체 가이드"
             value={description}
             onChange={(e) => {
               setDescription(e.target.value);
               setErrors((prev) => ({ ...prev, description: undefined }));
             }}
-            className="w-full p-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-            rows={3}
             placeholder="프로그램의 전체 가이드를 입력하세요"
+            error={errors.description}
+            rows={3}
           />
-          {errors.description && <p className="text-sm text-red-600 mt-1">{errors.description}</p>}
         </section>
 
         {/* Exercises list */}
@@ -266,13 +267,12 @@ export default function ProgramEditPage() {
             <div key={ex.id} className="bg-white rounded-xl shadow-md p-4 border border-gray-100">
               <div className="mb-3 flex items-center gap-3">
                 <div className="flex-1">
-                  <input
+                  <Input
                     value={ex.name}
                     onChange={(e) => {
                       const newEx = { ...ex, name: e.target.value };
                       updateExercise(ex.id, () => newEx);
                     }}
-                    className="w-full p-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                     placeholder="운동명"
                   />
                 </div>
@@ -287,105 +287,86 @@ export default function ProgramEditPage() {
               </div>
 
               <div className="grid grid-cols-2 gap-3 mb-3">
-                <div>
-                  <label className="text-xs text-slate-600 mb-1 block">세트 수</label>
-                  <input
-                    type="text"
-                    inputMode="numeric"
-                    value={ex.target.sets}
-                    onChange={(e) => {
-                      const val = handleNumericInput(e.target.value, 'sets', ex.id);
-                      updateExercise(ex.id, (prev) => ({ ...prev, target: { ...prev.target, sets: val } }));
-                    }}
-                    className="w-full p-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    placeholder="세트"
-                  />
-                  {inputErrors[`${ex.id}-sets`] && (
-                    <p className="text-xs text-red-600 mt-1">{inputErrors[`${ex.id}-sets`]}</p>
-                  )}
-                </div>
-                <div>
-                  <label className="text-xs text-slate-600 mb-1 block">휴식 시간(초)</label>
-                  <input
-                    type="text"
-                    inputMode="numeric"
-                    value={ex.restSeconds}
-                    onChange={(e) => {
-                      const val = handleNumericInput(e.target.value, 'rest', ex.id);
-                      updateExercise(ex.id, (prev) => ({ ...prev, restSeconds: val }));
-                    }}
-                    className="w-full p-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    placeholder="초"
-                  />
-                  {inputErrors[`${ex.id}-rest`] && (
-                    <p className="text-xs text-red-600 mt-1">{inputErrors[`${ex.id}-rest`]}</p>
-                  )}
-                </div>
+                <Input
+                  label="세트 수"
+                  type="text"
+                  inputMode="numeric"
+                  value={ex.target.sets}
+                  onChange={(e) => {
+                    const val = handleNumericInput(e.target.value, 'sets', ex.id);
+                    updateExercise(ex.id, (prev) => ({ ...prev, target: { ...prev.target, sets: val } }));
+                  }}
+                  placeholder="세트"
+                  error={inputErrors[`${ex.id}-sets`]}
+                  className="text-sm"
+                />
+                <Input
+                  label="휴식 시간(초)"
+                  type="text"
+                  inputMode="numeric"
+                  value={ex.restSeconds}
+                  onChange={(e) => {
+                    const val = handleNumericInput(e.target.value, 'rest', ex.id);
+                    updateExercise(ex.id, (prev) => ({ ...prev, restSeconds: val }));
+                  }}
+                  placeholder="초"
+                  error={inputErrors[`${ex.id}-rest`]}
+                  className="text-sm"
+                />
               </div>
 
               <div className="grid grid-cols-2 gap-3 mb-3">
-                <div>
-                  <label className="text-xs text-slate-600 mb-1 block">최소 횟수</label>
-                  <input
-                    type="text"
-                    inputMode="numeric"
-                    value={ex.target.reps.min}
-                    onChange={(e) => {
-                      const val = handleNumericInput(e.target.value, 'reps-min', ex.id);
-                      updateExercise(ex.id, (prev) => ({
-                        ...prev,
-                        target: { ...prev.target, reps: { ...prev.target.reps, min: val } }
-                      }));
-                    }}
-                    className="w-full p-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    placeholder="최소"
-                  />
-                  {inputErrors[`${ex.id}-reps-min`] && (
-                    <p className="text-xs text-red-600 mt-1">{inputErrors[`${ex.id}-reps-min`]}</p>
-                  )}
-                </div>
-                <div>
-                  <label className="text-xs text-slate-600 mb-1 block">최대 횟수</label>
-                  <input
-                    type="text"
-                    inputMode="numeric"
-                    value={ex.target.reps.max}
-                    onChange={(e) => {
-                      const val = handleNumericInput(e.target.value, 'reps-max', ex.id);
-                      updateExercise(ex.id, (prev) => ({
-                        ...prev,
-                        target: { ...prev.target, reps: { ...prev.target.reps, max: val } }
-                      }));
-                    }}
-                    className="w-full p-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    placeholder="최대"
-                  />
-                  {inputErrors[`${ex.id}-reps-max`] && (
-                    <p className="text-xs text-red-600 mt-1">{inputErrors[`${ex.id}-reps-max`]}</p>
-                  )}
-                </div>
-              </div>
-
-              <div className="mb-3">
-                <label className="text-xs text-slate-600 mb-1 block">의도 (선택)</label>
-                <input
-                  value={ex.intention}
-                  onChange={(e) => updateExercise(ex.id, (prev) => ({ ...prev, intention: e.target.value }))}
-                  className="w-full p-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  placeholder="예: 가슴 근육 강화"
+                <Input
+                  label="최소 횟수"
+                  type="text"
+                  inputMode="numeric"
+                  value={ex.target.reps.min}
+                  onChange={(e) => {
+                    const val = handleNumericInput(e.target.value, 'reps-min', ex.id);
+                    updateExercise(ex.id, (prev) => ({
+                      ...prev,
+                      target: { ...prev.target, reps: { ...prev.target.reps, min: val } }
+                    }));
+                  }}
+                  placeholder="최소"
+                  error={inputErrors[`${ex.id}-reps-min`]}
+                  className="text-sm"
+                />
+                <Input
+                  label="최대 횟수"
+                  type="text"
+                  inputMode="numeric"
+                  value={ex.target.reps.max}
+                  onChange={(e) => {
+                    const val = handleNumericInput(e.target.value, 'reps-max', ex.id);
+                    updateExercise(ex.id, (prev) => ({
+                      ...prev,
+                      target: { ...prev.target, reps: { ...prev.target.reps, max: val } }
+                    }));
+                  }}
+                  placeholder="최대"
+                  error={inputErrors[`${ex.id}-reps-max`]}
+                  className="text-sm"
                 />
               </div>
 
-              <div>
-                <label className="text-xs text-slate-600 mb-1 block">메모 (선택)</label>
-                <textarea
-                  value={ex.note}
-                  onChange={(e) => updateExercise(ex.id, (prev) => ({ ...prev, note: e.target.value }))}
-                  className="w-full p-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  rows={2}
-                  placeholder="추가 설명"
-                />
-              </div>
+              <Input
+                label="의도 (선택)"
+                value={ex.intention}
+                onChange={(e) => updateExercise(ex.id, (prev) => ({ ...prev, intention: e.target.value }))}
+                placeholder="예: 가슴 근육 강화"
+                className="mb-3 text-sm"
+              />
+
+              <Input
+                as="textarea"
+                label="메모 (선택)"
+                value={ex.note}
+                onChange={(e) => updateExercise(ex.id, (prev) => ({ ...prev, note: e.target.value }))}
+                placeholder="추가 설명"
+                rows={2}
+                className="text-sm"
+              />
 
               {errors.exercises?.[ex.id]?.summary && (
                 <p className="text-sm text-red-600 mt-2">{errors.exercises[ex.id].summary}</p>

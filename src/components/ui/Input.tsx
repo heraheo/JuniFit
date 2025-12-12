@@ -1,15 +1,26 @@
-import { InputHTMLAttributes, forwardRef } from 'react';
+import { InputHTMLAttributes, TextareaHTMLAttributes, forwardRef } from 'react';
 import { cn } from '@/lib/utils';
 
-interface InputProps extends InputHTMLAttributes<HTMLInputElement> {
+interface BaseProps {
   label?: string;
   error?: string;
   helperText?: string;
 }
 
-const Input = forwardRef<HTMLInputElement, InputProps>(
-  ({ label, error, helperText, className, id, ...props }, ref) => {
+type InputProps = BaseProps & InputHTMLAttributes<HTMLInputElement> & {
+  as?: 'input';
+};
+
+type TextareaProps = BaseProps & TextareaHTMLAttributes<HTMLTextAreaElement> & {
+  as: 'textarea';
+};
+
+type Props = InputProps | TextareaProps;
+
+const Input = forwardRef<HTMLInputElement | HTMLTextAreaElement, Props>(
+  ({ label, error, helperText, className, id, as = 'input', ...props }, ref) => {
     const inputId = id || label?.toLowerCase().replace(/\s+/g, '-');
+    const Component = as;
     
     return (
       <div className="w-full">
@@ -18,18 +29,19 @@ const Input = forwardRef<HTMLInputElement, InputProps>(
             {label}
           </label>
         )}
-        <input
-          ref={ref}
+        <Component
+          ref={ref as any}
           id={inputId}
           className={cn(
             'w-full px-4 py-3 border rounded-lg text-base',
-            'focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent',
+            'focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent',
             'disabled:bg-gray-100 disabled:cursor-not-allowed',
             'transition-all',
             error ? 'border-red-500' : 'border-slate-300',
+            as === 'textarea' && 'resize-none',
             className
           )}
-          {...props}
+          {...(props as any)}
         />
         {error && (
           <p className="mt-1 text-sm text-red-600">{error}</p>
