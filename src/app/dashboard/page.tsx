@@ -1,11 +1,7 @@
-"use client";
-
-import { useEffect, useState } from "react";
 import Link from "next/link";
 import { ArrowLeft, Calendar, Dumbbell, TrendingUp, CheckCircle } from "lucide-react";
 import { Card } from "@/components/ui/Card";
 import { getDashboardData } from "@/lib/api";
-import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
 
 type DashboardData = {
   totalSessions: number;
@@ -16,76 +12,44 @@ type DashboardData = {
   currentMonth: number;
 };
 
-export default function DashboardPage() {
-  const [data, setData] = useState<DashboardData | null>(null);
-  const [loading, setLoading] = useState(true);
+// 달력 생성 함수
+const generateCalendarDays = (year: number, month: number) => {
+  const firstDay = new Date(year, month, 1);
+  const lastDay = new Date(year, month + 1, 0);
+  const daysInMonth = lastDay.getDate();
+  const startDayOfWeek = firstDay.getDay(); // 0 = 일요일
 
-  useEffect(() => {
-    async function fetchData() {
-      const result = await getDashboardData();
-      setData(result);
-      setLoading(false);
-    }
-    fetchData();
-  }, []);
+  const days: (number | null)[] = [];
 
-  // 달력 생성 함수
-  const generateCalendarDays = (year: number, month: number) => {
-    const firstDay = new Date(year, month, 1);
-    const lastDay = new Date(year, month + 1, 0);
-    const daysInMonth = lastDay.getDate();
-    const startDayOfWeek = firstDay.getDay(); // 0 = 일요일
-
-    const days: (number | null)[] = [];
-
-    // 첫 주 빈칸 채우기
-    for (let i = 0; i < startDayOfWeek; i++) {
-      days.push(null);
-    }
-
-    // 날짜 채우기
-    for (let day = 1; day <= daysInMonth; day++) {
-      days.push(day);
-    }
-
-    return days;
-  };
-
-  // 숫자 포맷팅 (천 단위 콤마)
-  const formatNumber = (num: number) => {
-    return num.toLocaleString("ko-KR");
-  };
-
-  // 월 이름 가져오기
-  const getMonthName = (month: number) => {
-    const months = [
-      "1월", "2월", "3월", "4월", "5월", "6월",
-      "7월", "8월", "9월", "10월", "11월", "12월"
-    ];
-    return months[month];
-  };
-
-  const today = new Date();
-  const todayDate = today.getDate();
-  const isCurrentMonth = data
-    ? today.getFullYear() === data.currentYear && today.getMonth() === data.currentMonth
-    : false;
-
-  if (loading) {
-    return (
-      <div className="min-h-screen px-4 pt-6 pb-8 bg-gray-50">
-        <div className="max-w-md mx-auto">
-          <header className="flex items-center mb-6">
-            <Link href="/" className="text-slate-600 mr-4">
-              <ArrowLeft className="w-6 h-6" />
-            </Link>
-            <h1 className="text-xl font-bold">나의 운동 대시보드</h1>
-          </header>
-          <LoadingSpinner />
-        </div>
-      </div>
-    );
+  // 첫 주 빈칸 채우기
+  for (let i = 0; i < startDayOfWeek; i++) {
+    days.push(null);
   }
+
+  // 날짜 채우기
+  for (let day = 1; day <= daysInMonth; day++) {
+    days.push(day);
+  }
+
+  return days;
+};
+
+// 숫자 포맷팅 (천 단위 콤마)
+const formatNumber = (num: number) => {
+  return num.toLocaleString("ko-KR");
+};
+
+// 월 이름 가져오기
+const getMonthName = (month: number) => {
+  const months = [
+    "1월", "2월", "3월", "4월", "5월", "6월",
+    "7월", "8월", "9월", "10월", "11월", "12월"
+  ];
+  return months[month];
+};
+
+export default async function DashboardPage() {
+  const data = await getDashboardData();
 
   if (!data) {
     return (
@@ -95,15 +59,19 @@ export default function DashboardPage() {
             <Link href="/" className="text-slate-600 mr-4">
               <ArrowLeft className="w-6 h-6" />
             </Link>
-            <h1 className="text-xl font-bold">나의 운동 대시보드</h1>
+            <h1 className="text-xl font-bold">대시보드</h1>
           </header>
-          <div className="text-center py-12 bg-white rounded-xl shadow-md">
-            <p className="text-slate-600">데이터를 불러오는데 실패했습니다.</p>
-          </div>
+          <Card padding="lg" className="text-center">
+            <p className="text-slate-600">데이터를 불러올 수 없습니다.</p>
+          </Card>
         </div>
       </div>
     );
   }
+
+  const today = new Date();
+  const todayDate = today.getDate();
+  const isCurrentMonth = today.getFullYear() === data.currentYear && today.getMonth() === data.currentMonth;
 
   const calendarDays = generateCalendarDays(data.currentYear, data.currentMonth);
   const workoutDatesSet = new Set(data.monthlyWorkoutDates);

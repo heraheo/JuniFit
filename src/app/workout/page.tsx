@@ -1,15 +1,11 @@
-"use client";
-
 import Link from "next/link";
 import { ArrowLeft, Dumbbell } from "lucide-react";
 import { Card } from "@/components/ui/Card";
 import { getPrograms } from "@/lib/api";
-import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
 import { EmptyState } from "@/components/ui/EmptyState";
-import { useAsync } from "@/hooks/useAsync";
 
-export default function WorkoutPage() {
-  const { loading, data: programs } = useAsync(getPrograms, []);
+export default async function WorkoutPage() {
+  const programs = await getPrograms();
 
   return (
     <div className="min-h-screen px-4 pt-6 pb-8 bg-gray-50">
@@ -23,9 +19,7 @@ export default function WorkoutPage() {
         </header>
 
         {/* 프로그램 목록 */}
-        {loading ? (
-          <LoadingSpinner />
-        ) : !programs || programs.length === 0 ? (
+        {!programs || programs.length === 0 ? (
           <EmptyState
             icon={Dumbbell}
             title="시작할 프로그램이 없습니다"

@@ -21,21 +21,25 @@ export async function getPrograms(): Promise<ProgramWithExercises[]> {
     return [];
   }
 
-  // 각 프로그램의 운동 개수 조회
-  const programsWithCount = await Promise.all(
-    programs.map(async (program) => {
-      const { count } = await supabase
-        .from('program_exercises')
-        .select('*', { count: 'exact', head: true })
-        .eq('program_id', program.id);
+  // 모든 프로그램의 운동 개수를 한 번에 조회 (N+1 문제 해결)
+  if (programs.length === 0) return [];
 
-      return {
-        ...program,
-        exercises: [],
-        exerciseCount: count || 0,
-      };
-    })
-  );
+  const { data: allExercises } = await supabase
+    .from('program_exercises')
+    .select('program_id')
+    .in('program_id', programs.map(p => p.id));
+
+  // 프로그램별 운동 개수 집계
+  const exerciseCountMap: Record<string, number> = {};
+  allExercises?.forEach(ex => {
+    exerciseCountMap[ex.program_id] = (exerciseCountMap[ex.program_id] || 0) + 1;
+  });
+
+  const programsWithCount = programs.map(program => ({
+    ...program,
+    exercises: [],
+    exerciseCount: exerciseCountMap[program.id] || 0,
+  }));
 
   return programsWithCount;
 }
@@ -164,82 +168,81 @@ export async function completeWorkoutSession(sessionId: string, note?: string) {
   return data;
 }
 
-// 운동 기록 조회 (세션 + 세트)
-export async function getWorkoutLogs() {
+// 운동 기록 조회 (세션 + 세트) - 페이지네이션 지원
+export async function getWorkoutLogs(limit?: number, offset: number = 0) {
   const supabase = createClient();
+  
   // 완료된 세션만 조회 (ended_at이 있는 것)
-  const { data: sessions, error: sessionsError } = await supabase
+  let query = supabase
     .from('workout_sessions')
     .select('*')
     .not('ended_at', 'is', null)
     .order('started_at', { ascending: false });
+
+  // 페이지네이션 적용
+  if (limit !== undefined) {
+    query = query.range(offset, offset + limit - 1);
+  }
+
+  const { data: sessions, error: sessionsError } = await query;
 
   if (sessionsError) {
     console.error('Error fetching workout sessions:', sessionsError);
     return [];
   }
 
-  // 각 세션의 세트 데이터와 프로그램 정보 조회
-  const logsWithSets = await Promise.all(
-    sessions.map(async (session) => {
-      // 세트 조회
-      const { data: sets, error: setsError } = await supabase
-        .from('workout_sets')
-        .select('*')
-        .eq('session_id', session.id)
-        .order('created_at', { ascending: true });
+  // N+1 문제 해결: 모든 세션의 데이터를 한 번에 조회
+  if (sessions.length === 0) return [];
 
-      if (setsError) {
-        console.error('Error fetching workout sets:', setsError);
-      }
+  const sessionIds = sessions.map(s => s.id);
+  const programIds = [...new Set(sessions.map(s => s.program_id).filter(Boolean))];
 
-      // 프로그램 운동 목록을 가져와서 순서 정보 매핑
-      let exerciseOrderMap: Record<string, number> = {};
-      if (session.program_id) {
-        const { data: exercises } = await supabase
-          .from('program_exercises')
-          .select('name, order')
-          .eq('program_id', session.program_id);
-        
-        if (exercises) {
-          exercises.forEach(ex => {
-            exerciseOrderMap[ex.name] = ex.order || 999;
-          });
-        }
-      }
+  // 모든 쿼리를 병렬로 실행 (31번 → 4번)
+  const [setsResult, exercisesResult, programsResult] = await Promise.all([
+    supabase.from('workout_sets').select('*').in('session_id', sessionIds).order('created_at', { ascending: true }),
+    programIds.length > 0 ? supabase.from('program_exercises').select('program_id, name, order').in('program_id', programIds) : Promise.resolve({ data: [] }),
+    programIds.length > 0 ? supabase.from('programs').select('id, title').in('id', programIds) : Promise.resolve({ data: [] }),
+  ]);
 
-      // 세트를 운동 순서대로 정렬
-      const sortedSets = sets?.sort((a, b) => {
-        const orderA = exerciseOrderMap[a.exercise_name] || 999;
-        const orderB = exerciseOrderMap[b.exercise_name] || 999;
-        if (orderA !== orderB) {
-          return orderA - orderB;
-        }
-        // 같은 운동이면 세트 번호로 정렬
-        return a.set_number - b.set_number;
-      }) || [];
+  // 세션별 세트 그룹화
+  const setsBySession: Record<string, any[]> = {};
+  setsResult.data?.forEach(set => {
+    if (!setsBySession[set.session_id]) setsBySession[set.session_id] = [];
+    setsBySession[set.session_id].push(set);
+  });
 
-      // 프로그램 제목 조회 (있는 경우)
-      let programTitle = undefined;
-      if (session.program_id) {
-        const { data: program } = await supabase
-          .from('programs')
-          .select('title')
-          .eq('id', session.program_id)
-          .single();
-        
-        if (program) {
-          programTitle = program.title;
-        }
-      }
+  // 프로그램별 운동 순서 맵
+  const exerciseOrderByProgram: Record<string, Record<string, number>> = {};
+  exercisesResult.data?.forEach(ex => {
+    if (!exerciseOrderByProgram[ex.program_id]) exerciseOrderByProgram[ex.program_id] = {};
+    exerciseOrderByProgram[ex.program_id][ex.name] = ex.order || 999;
+  });
 
-      return {
-        ...session,
-        sets: sortedSets,
-        programTitle,
-      };
-    })
-  );
+  // 프로그램 제목 맵
+  const programTitleMap: Record<string, string> = {};
+  programsResult.data?.forEach(p => {
+    programTitleMap[p.id] = p.title;
+  });
+
+  // 각 세션 데이터 조합
+  const logsWithSets = sessions.map(session => {
+    const sets = setsBySession[session.id] || [];
+    const exerciseOrderMap = session.program_id ? exerciseOrderByProgram[session.program_id] || {} : {};
+
+    // 세트를 운동 순서대로 정렬
+    const sortedSets = sets.sort((a, b) => {
+      const orderA = exerciseOrderMap[a.exercise_name] || 999;
+      const orderB = exerciseOrderMap[b.exercise_name] || 999;
+      if (orderA !== orderB) return orderA - orderB;
+      return a.set_number - b.set_number;
+    });
+
+    return {
+      ...session,
+      sets: sortedSets,
+      programTitle: session.program_id ? programTitleMap[session.program_id] : undefined,
+    };
+  });
 
   return logsWithSets;
 }
@@ -301,41 +304,43 @@ export async function getDashboardData() {
 // 특정 운동 기록 조회 (ID로)
 export async function getWorkoutLogById(sessionId: string) {
   const supabase = createClient();
-  // 세션 조회
-  const { data: session, error: sessionError } = await supabase
-    .from('workout_sessions')
-    .select('*')
-    .eq('id', sessionId)
-    .single();
+  
+  // 1단계: 세션과 세트를 병렬로 조회 (Waterfall 제거)
+  const [sessionResult, setsResult] = await Promise.all([
+    supabase.from('workout_sessions').select('*').eq('id', sessionId).single(),
+    supabase.from('workout_sets').select('*').eq('session_id', sessionId).order('created_at', { ascending: true }),
+  ]);
+
+  const { data: session, error: sessionError } = sessionResult;
+  const { data: sets, error: setsError } = setsResult;
 
   if (sessionError || !session) {
     console.error('Error fetching workout session:', sessionError);
     return null;
   }
 
-  // 세트 조회
-  const { data: sets, error: setsError } = await supabase
-    .from('workout_sets')
-    .select('*')
-    .eq('session_id', sessionId)
-    .order('created_at', { ascending: true });
-
   if (setsError) {
     console.error('Error fetching workout sets:', setsError);
   }
 
-  // 프로그램 운동 목록을 가져와서 순서 정보 매핑
+  // 2단계: program_id가 있으면 프로그램 정보를 병렬로 조회
   let exerciseOrderMap: Record<string, number> = {};
+  let programTitle = undefined;
+
   if (session.program_id) {
-    const { data: exercises } = await supabase
-      .from('program_exercises')
-      .select('name, order')
-      .eq('program_id', session.program_id);
-    
-    if (exercises) {
-      exercises.forEach(ex => {
+    const [exercisesResult, programResult] = await Promise.all([
+      supabase.from('program_exercises').select('name, order').eq('program_id', session.program_id),
+      supabase.from('programs').select('title').eq('id', session.program_id).single(),
+    ]);
+
+    if (exercisesResult.data) {
+      exercisesResult.data.forEach(ex => {
         exerciseOrderMap[ex.name] = ex.order || 999;
       });
+    }
+
+    if (programResult.data) {
+      programTitle = programResult.data.title;
     }
   }
 
@@ -343,26 +348,9 @@ export async function getWorkoutLogById(sessionId: string) {
   const sortedSets = sets?.sort((a, b) => {
     const orderA = exerciseOrderMap[a.exercise_name] || 999;
     const orderB = exerciseOrderMap[b.exercise_name] || 999;
-    if (orderA !== orderB) {
-      return orderA - orderB;
-    }
-    // 같은 운동이면 세트 번호로 정렬
+    if (orderA !== orderB) return orderA - orderB;
     return a.set_number - b.set_number;
   }) || [];
-
-  // 프로그램 제목 조회
-  let programTitle = undefined;
-  if (session.program_id) {
-    const { data: program } = await supabase
-      .from('programs')
-      .select('title')
-      .eq('id', session.program_id)
-      .single();
-    
-    if (program) {
-      programTitle = program.title;
-    }
-  }
 
   return {
     ...session,
