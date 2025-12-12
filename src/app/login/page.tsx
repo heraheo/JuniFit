@@ -3,6 +3,7 @@
 import { useState, useEffect, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import Button from "@/components/ui/Button";
 
 function LoginContent() {
   const [isLoading, setIsLoading] = useState(false);
@@ -59,28 +60,20 @@ function LoginContent() {
         )}
 
         {/* 카카오 로그인 버튼 */}
-        <button
+        <Button
           onClick={handleKakaoLogin}
-          disabled={isLoading}
-          className="w-full bg-[#FEE500] hover:bg-[#FDD835] text-[#000000] font-semibold py-4 px-6 rounded-xl flex items-center justify-center gap-3 transition-all shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed"
+          isLoading={isLoading}
+          fullWidth
+          size="lg"
+          className="bg-[#FEE500] hover:bg-[#FDD835] text-[#000000] shadow-lg hover:shadow-xl"
         >
-          {isLoading ? (
-            <div className="flex items-center gap-2">
-              <svg className="animate-spin h-5 w-5" viewBox="0 0 24 24">
-                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-              </svg>
-              <span>로그인 중...</span>
-            </div>
-          ) : (
-            <>
-              <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
-                <path d="M10 0C4.477 0 0 3.86 0 8.617c0 2.873 1.568 5.428 3.996 6.963-.166.607-.999 3.582-1.04 3.818 0 0-.027.218.114.3.141.083.31.012.31.012.403-.056 4.676-3.058 5.423-3.596.397.055.803.096 1.217.096 5.523 0 10-3.86 10-8.617C20 3.86 15.523 0 10 0z" fill="#000000"/>
-              </svg>
-              <span>카카오로 시작하기</span>
-            </>
+          {!isLoading && (
+            <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+              <path d="M10 0C4.477 0 0 3.86 0 8.617c0 2.873 1.568 5.428 3.996 6.963-.166.607-.999 3.582-1.04 3.818 0 0-.027.218.114.3.141.083.31.012.31.012.403-.056 4.676-3.058 5.423-3.596.397.055.803.096 1.217.096 5.523 0 10-3.86 10-8.617C20 3.86 15.523 0 10 0z" fill="#000000"/>
+            </svg>
           )}
-        </button>
+          <span>카카오로 시작하기</span>
+        </Button>
 
         {/* 추가 정보 */}
         <p className="text-center text-sm text-slate-500 mt-8">

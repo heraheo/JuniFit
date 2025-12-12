@@ -8,6 +8,7 @@ import type { WorkoutSession, WorkoutSet } from "@/types/database";
 import { formatDateWithWeekday, formatTime, calculateDuration, groupSetsByExercise } from "@/lib/utils";
 import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
 import { EmptyState } from "@/components/ui/EmptyState";
+import Button from "@/components/ui/Button";
 
 type WorkoutLog = WorkoutSession & {
   sets: WorkoutSet[];
@@ -186,26 +187,30 @@ export default function LogsPage() {
                       <div className="flex items-center gap-1 ml-2">
                         {!isEditing && (
                           <>
-                            <button
-                              onClick={(e) => {
+                            <Button
+                              onClick={(e: React.MouseEvent) => {
                                 e.stopPropagation();
                                 startEditing(log);
                               }}
-                              className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                              variant="ghost"
+                              size="sm"
+                              className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50"
                               title="수정"
                             >
                               <Edit3 className="w-4 h-4" />
-                            </button>
-                            <button
-                              onClick={(e) => {
+                            </Button>
+                            <Button
+                              onClick={(e: React.MouseEvent) => {
                                 e.stopPropagation();
                                 setDeleteConfirm(log.id);
                               }}
-                              className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                              variant="ghost"
+                              size="sm"
+                              className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50"
                               title="삭제"
                             >
                               <Trash2 className="w-4 h-4" />
-                            </button>
+                            </Button>
                           </>
                         )}
                         {isExpanded ? (
@@ -226,18 +231,20 @@ export default function LogsPage() {
                           삭제된 기록은 복구할 수 없습니다.
                         </p>
                         <div className="flex gap-2">
-                          <button
+                          <Button
                             onClick={() => handleDelete(log.id)}
-                            className="flex-1 py-2 bg-red-600 text-white rounded-lg text-sm font-medium hover:bg-red-700 transition-colors"
+                            variant="danger"
+                            className="flex-1"
                           >
                             삭제
-                          </button>
-                          <button
+                          </Button>
+                          <Button
                             onClick={() => setDeleteConfirm(null)}
-                            className="flex-1 py-2 bg-gray-200 text-slate-700 rounded-lg text-sm font-medium hover:bg-gray-300 transition-colors"
+                            variant="secondary"
+                            className="flex-1"
                           >
                             취소
-                          </button>
+                          </Button>
                         </div>
                       </div>
                     </div>
@@ -251,22 +258,26 @@ export default function LogsPage() {
                         <div className="flex items-center justify-between py-3 border-b border-gray-100">
                           <span className="text-sm font-medium text-blue-600">수정 모드</span>
                           <div className="flex gap-2">
-                            <button
+                            <Button
                               onClick={cancelEditing}
-                              className="flex items-center gap-1 px-3 py-1.5 text-sm text-slate-600 hover:bg-gray-100 rounded-lg transition-colors"
-                              disabled={isSaving}
+                              variant="ghost"
+                              size="sm"
+                              isLoading={isSaving}
+                              className="flex items-center gap-1"
                             >
                               <X className="w-4 h-4" />
                               취소
-                            </button>
-                            <button
+                            </Button>
+                            <Button
                               onClick={() => saveEditing(log)}
-                              className="flex items-center gap-1 px-3 py-1.5 text-sm text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors disabled:opacity-50"
-                              disabled={isSaving}
+                              variant="primary"
+                              size="sm"
+                              isLoading={isSaving}
+                              className="flex items-center gap-1"
                             >
                               <Save className="w-4 h-4" />
-                              {isSaving ? "저장 중..." : "저장"}
-                            </button>
+                              저장
+                            </Button>
                           </div>
                         </div>
                       )}

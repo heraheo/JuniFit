@@ -7,6 +7,7 @@ import { createClient } from "@/lib/supabase/client";
 import type { Program, ProgramExercise } from "@/types/database";
 import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
 import { EmptyState } from "@/components/ui/EmptyState";
+import Button from "@/components/ui/Button";
 
 type ProgramWithExercises = Program & {
   exercises?: ProgramExercise[];
@@ -231,19 +232,20 @@ export default function ProgramsManagePage() {
                       <span className="font-medium">수정</span>
                     </Link>
 
-                    <button
-                      onClick={(e) => {
+                    <Button
+                      onClick={(e: React.MouseEvent) => {
                         e.stopPropagation();
                         handleDelete(program);
                       }}
-                      disabled={deleting === program.id}
-                      className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-red-50 text-red-700 rounded-lg hover:bg-red-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                      isLoading={deleting === program.id}
+                      variant="danger"
+                      className="flex-1 flex items-center justify-center gap-2"
                     >
                       <Trash2 className="w-4 h-4" />
                       <span className="font-medium">
-                        {deleting === program.id ? '삭제 중...' : '삭제'}
+                        삭제
                       </span>
-                    </button>
+                    </Button>
                   </div>
                 </div>
               );
@@ -254,11 +256,14 @@ export default function ProgramsManagePage() {
         {/* Create New Button */}
         {!loading && programs.length > 0 && (
           <div className="mt-6">
-            <Link
-              href="/templates/new"
-              className="block w-full bg-blue-600 text-white text-center py-3 rounded-xl font-medium hover:bg-blue-700 transition-colors"
-            >
-              + 새 프로그램 만들기
+            <Link href="/templates/new">
+              <Button
+                variant="primary"
+                fullWidth
+                className="py-3"
+              >
+                + 새 프로그램 만들기
+              </Button>
             </Link>
           </div>
         )}

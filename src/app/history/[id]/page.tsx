@@ -4,6 +4,7 @@ import { useEffect, useState, use } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, Trash2, Save, X, Edit2, Calendar } from "lucide-react";
+import Button from "@/components/ui/Button";
 import {
   getWorkoutLogById,
   deleteWorkoutSession,
@@ -240,14 +241,16 @@ export default function WorkoutLogDetailPage({
             </Link>
             <h1 className="text-xl font-bold">운동 기록 상세</h1>
           </div>
-          <button
+          <Button
             onClick={handleDelete}
-            disabled={deleting}
-            className="flex items-center gap-1 px-3 py-1.5 text-red-600 bg-red-50 rounded-lg hover:bg-red-100 transition-colors disabled:opacity-50"
+            isLoading={deleting}
+            variant="danger"
+            size="sm"
+            className="flex items-center gap-1"
           >
             <Trash2 className="w-4 h-4" />
-            <span className="text-sm">{deleting ? "삭제 중..." : "삭제"}</span>
-          </button>
+            <span className="text-sm">삭제</span>
+          </Button>
         </header>
 
         {/* 세션 정보 */}
@@ -361,20 +364,24 @@ export default function WorkoutLogDetailPage({
                             </div>
                           </div>
                           <div className="flex justify-end gap-2 mt-2">
-                            <button
+                            <Button
                               onClick={() => handleSetCancel(set.id)}
-                              className="flex items-center gap-1 px-2 py-1 text-slate-600 bg-gray-200 rounded text-sm hover:bg-gray-300"
+                              variant="secondary"
+                              size="sm"
+                              className="flex items-center gap-1"
                             >
                               <X className="w-3 h-3" />
                               취소
-                            </button>
-                            <button
+                            </Button>
+                            <Button
                               onClick={() => handleSetSave(set.id)}
-                              className="flex items-center gap-1 px-2 py-1 text-white bg-blue-600 rounded text-sm hover:bg-blue-700"
+                              variant="primary"
+                              size="sm"
+                              className="flex items-center gap-1"
                             >
                               <Save className="w-3 h-3" />
                               저장
-                            </button>
+                            </Button>
                           </div>
                         </div>
                       ) : (
@@ -399,12 +406,14 @@ export default function WorkoutLogDetailPage({
                               </span>
                             )}
                           </div>
-                          <button
+                          <Button
                             onClick={() => toggleSetEdit(set.id)}
-                            className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors"
+                            variant="ghost"
+                            size="sm"
+                            className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50"
                           >
                             <Edit2 className="w-4 h-4" />
-                          </button>
+                          </Button>
                         </div>
                       )}
                     </div>
@@ -419,12 +428,14 @@ export default function WorkoutLogDetailPage({
           <div className="flex items-center justify-between mb-2">
             <h3 className="font-bold text-slate-800">메모</h3>
             {!isEditingNote && (
-              <button
+              <Button
                 onClick={() => setIsEditingNote(true)}
-                className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors"
+                variant="ghost"
+                size="sm"
+                className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50"
               >
                 <Edit2 className="w-4 h-4" />
-              </button>
+              </Button>
             )}
           </div>
           {isEditingNote ? (
@@ -437,24 +448,28 @@ export default function WorkoutLogDetailPage({
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm resize-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               />
               <div className="flex justify-end gap-2">
-                <button
+                <Button
                   onClick={() => {
                     setIsEditingNote(false);
                     setEditNote(log.note || "");
                   }}
-                  className="flex items-center gap-1 px-3 py-1.5 text-slate-600 bg-gray-200 rounded-lg text-sm hover:bg-gray-300"
+                  variant="secondary"
+                  size="sm"
+                  className="flex items-center gap-1"
                 >
                   <X className="w-4 h-4" />
                   취소
-                </button>
-                <button
+                </Button>
+                <Button
                   onClick={handleNoteSave}
-                  disabled={savingNote}
-                  className="flex items-center gap-1 px-3 py-1.5 text-white bg-blue-600 rounded-lg text-sm hover:bg-blue-700 disabled:opacity-50"
+                  isLoading={savingNote}
+                  variant="primary"
+                  size="sm"
+                  className="flex items-center gap-1"
                 >
                   <Save className="w-4 h-4" />
-                  {savingNote ? "저장 중..." : "저장"}
-                </button>
+                  저장
+                </Button>
               </div>
             </div>
           ) : (

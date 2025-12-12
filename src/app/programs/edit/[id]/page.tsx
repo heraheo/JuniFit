@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { useRouter, useParams } from "next/navigation";
 import { Trash, ArrowLeft } from "lucide-react";
+import Button from "@/components/ui/Button";
 import { createClient } from "@/lib/supabase/client";
 import type { Program, ProgramExercise } from "@/types/database";
 import { validateNumericInput, validateProgramForm, type ExerciseInput } from "@/lib/validation";
@@ -392,38 +393,29 @@ export default function ProgramEditPage() {
             </div>
           ))}
 
-          <button
+          <Button
             onClick={addExercise}
-            className="w-full py-3 border-2 border-dashed border-slate-300 rounded-xl text-slate-600 hover:border-blue-400 hover:text-blue-600 transition-colors"
+            variant="outline"
+            fullWidth
+            className="border-2 border-dashed border-slate-300 hover:border-blue-400 hover:text-blue-600"
           >
             + 운동 추가
-          </button>
+          </Button>
         </section>
 
         {/* Save button */}
         <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 p-4">
           <div className="max-w-md mx-auto">
-            <button
+            <Button
               onClick={save}
-              disabled={isSaving}
-              className={`w-full text-white rounded-full py-4 font-semibold text-lg shadow-lg transition-colors ${
-                isSaving 
-                  ? 'bg-gray-400 cursor-not-allowed' 
-                  : 'bg-blue-600 hover:bg-blue-700'
-              }`}
+              isLoading={isSaving}
+              variant="primary"
+              size="lg"
+              fullWidth
+              className="rounded-full py-4 font-semibold text-lg shadow-lg"
             >
-              {isSaving ? (
-                <span className="flex items-center justify-center gap-2">
-                  <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                  </svg>
-                  저장 중...
-                </span>
-              ) : (
-                '수정 완료'
-              )}
-            </button>
+              수정 완료
+            </Button>
           </div>
         </div>
       </div>
@@ -443,12 +435,14 @@ export default function ProgramEditPage() {
                 <span className="font-semibold text-blue-600">{title}</span> 프로그램이 수정되었습니다.
               </p>
             </div>
-            <button
+            <Button
               onClick={() => router.push('/programs/manage')}
-              className="w-full bg-blue-600 text-white py-3 rounded-xl font-semibold hover:bg-blue-700 transition-colors"
+              variant="primary"
+              fullWidth
+              className="py-3"
             >
               프로그램 목록으로
-            </button>
+            </Button>
           </div>
         </div>
       )}

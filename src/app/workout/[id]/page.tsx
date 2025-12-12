@@ -9,6 +9,7 @@ import type { ProgramWithExercises } from "@/lib/api";
 import { formatSeconds } from "@/lib/utils";
 import { useRestTimer } from "@/hooks/useRestTimer";
 import { useWorkoutSession } from "@/hooks/useWorkoutSession";
+import Button from "@/components/ui/Button";
 
 
 // 동적 라우트를 위한 params 타입 정의
@@ -80,11 +81,10 @@ export default function WorkoutDetailPage({ params }: Props) {
           {!loading && (
             <div className="bg-white rounded-xl shadow-md p-8 text-center">
               <p className="text-slate-600 mb-4">요청하신 프로그램을 찾을 수 없습니다.</p>
-              <Link 
-                href="/workout"
-                className="inline-block bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
-              >
-                프로그램 목록으로 돌아가기
+              <Link href="/workout">
+                <Button variant="primary">
+                  프로그램 목록으로 돌아가기
+                </Button>
               </Link>
             </div>
           )}
@@ -249,37 +249,26 @@ export default function WorkoutDetailPage({ params }: Props) {
 
                     {/* 버튼 구분선 */}
                     <div className="mt-6 pt-5 border-t-2 border-dashed border-gray-200">
-                      <button
+                      <Button
                         onClick={() => session.actions.completeExercise(exerciseIndex)}
-                        disabled={!session.actions.isCurrentValid() || session.isSaving}
-                        className={`w-full py-4 rounded-xl font-semibold text-lg transition-all flex items-center justify-center gap-2 ${
-                          session.actions.isCurrentValid() && !session.isSaving
-                            ? isLastExercise
-                              ? "bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white shadow-lg ring-2 ring-green-300 ring-offset-2"
-                              : "bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white shadow-lg ring-2 ring-blue-300 ring-offset-2"
-                            : "bg-gray-200 text-gray-400 cursor-not-allowed"
-                        }`}
+                        disabled={!session.actions.isCurrentValid()}
+                        isLoading={session.isSaving}
+                        fullWidth
+                        size="lg"
+                        className={isLastExercise ? "bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 shadow-lg ring-2 ring-green-300 ring-offset-2" : "shadow-lg ring-2 ring-blue-300 ring-offset-2"}
                       >
-                      {session.isSaving ? (
-                        <>
-                          <svg className="animate-spin h-5 w-5" viewBox="0 0 24 24">
-                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                          </svg>
-                          저장 중...
-                        </>
-                      ) : isLastExercise ? (
-                        <>
-                          <Check className="w-5 h-5" />
-                          운동 완료!
-                        </>
-                      ) : (
-                        <>
-                          <Timer className="w-5 h-5" />
-                          운동 완료 & 휴식 시작
-                        </>
-                      )}
-                      </button>
+                        {isLastExercise ? (
+                          <>
+                            <Check className="w-5 h-5" />
+                            운동 완료!
+                          </>
+                        ) : (
+                          <>
+                            <Timer className="w-5 h-5" />
+                            운동 완료 & 휴식 시작
+                          </>
+                        )}
+                      </Button>
                     </div>
                   </div>
                 )}
@@ -304,26 +293,17 @@ export default function WorkoutDetailPage({ params }: Props) {
 
         {/* 오늘의 운동 완료하기 버튼 */}
         <div className="mt-8 pb-8">
-          <button
+          <Button
             onClick={session.actions.completeAll}
-            disabled={session.isSaving}
-            className="w-full py-4 bg-slate-700 hover:bg-slate-800 text-white rounded-xl font-semibold text-lg transition-colors shadow-md flex items-center justify-center gap-2"
+            isLoading={session.isSaving}
+            fullWidth
+            size="lg"
+            variant="secondary"
+            className="shadow-md"
           >
-            {session.isSaving ? (
-              <>
-                <svg className="animate-spin h-5 w-5" viewBox="0 0 24 24">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                </svg>
-                저장 중...
-              </>
-            ) : (
-              <>
-                <Check className="w-5 h-5" />
-                오늘의 운동 완료하기
-              </>
-            )}
-          </button>
+            <Check className="w-5 h-5" />
+            오늘의 운동 완료하기
+          </Button>
           <p className="text-xs text-slate-500 text-center mt-2">
             현재까지 입력한 기록만 저장됩니다
           </p>
@@ -368,12 +348,15 @@ export default function WorkoutDetailPage({ params }: Props) {
               </div>
             )}
 
-            <button
+            <Button
               onClick={timer.skip}
-              className="w-full py-4 bg-blue-600 text-white rounded-xl font-semibold hover:bg-blue-700 transition-colors shadow-md"
+              fullWidth
+              size="lg"
+              variant="primary"
+              className="shadow-md"
             >
               다음 운동 시작하기
-            </button>
+            </Button>
           </div>
         </div>
       )}
@@ -420,18 +403,20 @@ export default function WorkoutDetailPage({ params }: Props) {
             </div>
 
             <div className="flex gap-3">
-              <button
+              <Button
                 onClick={() => router.push('/dashboard')}
-                className="flex-1 px-4 py-3 text-slate-600 bg-gray-100 rounded-xl font-medium hover:bg-gray-200 transition-colors"
+                variant="outline"
+                className="flex-1"
               >
                 대시보드 보기
-              </button>
-              <button
+              </Button>
+              <Button
                 onClick={() => router.push('/')}
-                className="flex-1 px-4 py-3 bg-blue-600 text-white rounded-xl font-medium hover:bg-blue-700 transition-colors"
+                variant="primary"
+                className="flex-1"
               >
                 홈으로 이동
-              </button>
+              </Button>
             </div>
           </div>
         </div>
