@@ -126,18 +126,23 @@ export async function saveWorkoutSet(
     return null;
   }
 
+  const insertData: any = {
+    user_id: user.id,
+    session_id: sessionId,
+    exercise_name: exerciseName,
+    set_number: setNumber,
+    weight,
+    reps,
+    rpe,
+  };
+  
+  if (note) {
+    insertData.note = note;
+  }
+
   const { data, error } = await supabase
     .from('workout_sets')
-    .insert({
-      user_id: user.id,
-      session_id: sessionId,
-      exercise_name: exerciseName,
-      set_number: setNumber,
-      weight,
-      reps,
-      rpe,
-      note: note || null,
-    })
+    .insert(insertData)
     .select()
     .single();
 
@@ -150,13 +155,12 @@ export async function saveWorkoutSet(
 }
 
 // 운동 세션 완료
-export async function completeWorkoutSession(sessionId: string, note?: string) {
+export async function completeWorkoutSession(sessionId: string) {
   const supabase = createClient();
   const { data, error } = await supabase
     .from('workout_sessions')
     .update({
       ended_at: new Date().toISOString(),
-      note,
     })
     .eq('id', sessionId)
     .select()

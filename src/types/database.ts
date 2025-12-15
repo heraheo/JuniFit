@@ -38,6 +38,7 @@ export type WorkoutSet = {
   weight: number;
   reps: number;
   rpe?: number | null;
+  note?: string | null;
   created_at: string;
 };
 

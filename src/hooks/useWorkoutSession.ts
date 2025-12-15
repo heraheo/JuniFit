@@ -169,7 +169,7 @@ export function useWorkoutSession({
               weight,
               reps,
               undefined,
-              exerciseNote
+              exerciseNote || undefined
             );
             
             if (!result) {
