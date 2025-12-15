@@ -158,7 +158,7 @@ export default function Page() {
         </div>
 
         {/* 프로그램 관리 버튼 */}
-        <Link href="/programs/manage" className="w-full mb-3">
+        <Link href="/programs/manage" className="w-full gap-6 mb-3">
           <Card padding="sm" hover className="flex items-center justify-center gap-3">
             <FolderOpen className="w-5 h-5 text-blue-600" />
             <span className="text-base font-medium text-slate-800">저장된 프로그램 목록 관리</span>
