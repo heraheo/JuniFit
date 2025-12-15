@@ -265,10 +265,7 @@ export default function ProgramEditPage() {
             error={errors.description}
             rows={3}
           />
-        </Card>
-
         {/* RPE 입력 */}
-        <Card padding="sm">
           <Input
             label="RPE (운동 자각도, 선택)"
             type="text"
@@ -281,7 +278,6 @@ export default function ProgramEditPage() {
               }
             }}
             placeholder="1~10 사이의 강도 (예: 8은 2개 더 가능)"
-            helperText="RPE는 1~10 사이의 정수입니다. 예: 7은 3개 더 가능, 8은 2개 더 가능"
           />
         </Card>
 

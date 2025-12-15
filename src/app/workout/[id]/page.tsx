@@ -108,6 +108,16 @@ export default function WorkoutDetailPage({ params }: Props) {
           <div className="flex-1">
             <h1 className="text-xl font-bold">{program.title}</h1>
             <p className="text-sm text-slate-600">{program.description}</p>
+            {program.rpe && (
+              <p className="text-sm text-blue-600 font-medium mt-1">
+                RPE: {program.rpe}
+              </p>
+            )}
+            {!program.rpe && (
+              <p className="text-sm text-gray-400 mt-1">
+                RPE: 없음
+              </p>
+            )}
           </div>
         </header>
 
