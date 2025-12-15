@@ -114,7 +114,8 @@ export async function saveWorkoutSet(
   setNumber: number,
   weight: number,
   reps: number,
-  rpe?: number
+  rpe?: number,
+  note?: string
 ) {
   const supabase = createClient();
   
@@ -135,6 +136,7 @@ export async function saveWorkoutSet(
       weight,
       reps,
       rpe,
+      note: note || null,
     })
     .select()
     .single();

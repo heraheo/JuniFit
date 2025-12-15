@@ -70,7 +70,6 @@ export type ExerciseInput = {
   };
   restSeconds: number | string;
   intention: string;
-  note: string;
 };
 
 /**

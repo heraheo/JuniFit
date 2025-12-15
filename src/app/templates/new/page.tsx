@@ -97,7 +97,6 @@ export default function Page() {
           target_reps: Number(ex.target.reps.min),
           rest_seconds: Number(ex.restSeconds),
           intention: ex.intention?.trim() || null,
-          note: ex.note?.trim() || null,
           order: index,
         }));
 
@@ -245,16 +244,6 @@ export default function Page() {
                 value={ex.intention}
                 onChange={(e) => actions.updateExercise(ex.id, (prev) => ({ ...prev, intention: e.target.value }))}
                 placeholder="예: 가슴 근육 강화"
-                className="mb-3 text-sm"
-              />
-
-              <Input
-                as="textarea"
-                label="메모 (선택)"
-                value={ex.note}
-                onChange={(e) => actions.updateExercise(ex.id, (prev) => ({ ...prev, note: e.target.value }))}
-                placeholder="추가 설명"
-                rows={2}
                 className="text-sm"
               />
 

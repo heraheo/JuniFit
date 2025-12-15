@@ -248,6 +248,20 @@ export default function WorkoutDetailPage({ params }: Props) {
                       ))}
                     </div>
 
+                    {/* 메모 입력 영역 */}
+                    <div className="mt-4">
+                      <label className="block text-sm font-medium text-slate-700 mb-2">
+                        운동 메모
+                      </label>
+                      <textarea
+                        placeholder="이 운동에 대한 메모를 입력하세요 (선택사항)"
+                        value={session.notes[exercise.id] || ""}
+                        onChange={(e) => session.actions.updateNote(exercise.id, e.target.value)}
+                        className="w-full p-3 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+                        rows={3}
+                      />
+                    </div>
+
                     {/* 버튼 구분선 */}
                     <div className="mt-6 pt-5 border-t-2 border-dashed border-gray-200">
                       <Button
@@ -275,7 +289,7 @@ export default function WorkoutDetailPage({ params }: Props) {
                 )}
 
                 {isCompleted && (
-                  <div className="px-4 pb-4">
+                  <div className="px-4 pb-4 space-y-2">
                     <div className="flex flex-wrap gap-2">
                       {session.inputs[exercise.id]?.map((set, idx) => (
                         set.weight && set.reps ? (
@@ -285,6 +299,11 @@ export default function WorkoutDetailPage({ params }: Props) {
                         ) : null
                       ))}
                     </div>
+                    {session.notes[exercise.id] && (
+                      <div className="mt-2 p-2 bg-gray-50 rounded text-xs text-gray-700 border border-gray-200">
+                        <span className="font-medium">메모:</span> {session.notes[exercise.id]}
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
@@ -397,6 +416,13 @@ export default function WorkoutDetailPage({ params }: Props) {
                           );
                         })}
                       </div>
+                      {session.notes[exercise.id] && (
+                        <div className="mt-2 pt-2 border-t border-gray-200">
+                          <p className="text-xs text-gray-600">
+                            <span className="font-medium">메모:</span> {session.notes[exercise.id]}
+                          </p>
+                        </div>
+                      )}
                     </div>
                   );
                 })}

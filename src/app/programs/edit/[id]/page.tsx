@@ -69,11 +69,10 @@ export default function ProgramEditPage() {
         },
         restSeconds: ex.rest_seconds,
         intention: ex.intention || '',
-        note: ex.note || ''
       }));
 
       setExercises(convertedExercises.length > 0 ? convertedExercises : [
-        { id: String(Date.now()), name: "", target: { sets: "", reps: { min: "", max: "" } }, restSeconds: "", intention: "", note: "" }
+        { id: String(Date.now()), name: "", target: { sets: "", reps: { min: "", max: "" } }, restSeconds: "", intention: "" }
       ]);
 
     } catch (error) {
@@ -92,7 +91,7 @@ export default function ProgramEditPage() {
   const addExercise = () => {
     setExercises((prev) => [
       ...prev,
-      { id: String(Date.now() + Math.random()), name: "", target: { sets: "", reps: { min: "", max: "" } }, restSeconds: "", intention: "", note: "" },
+      { id: String(Date.now() + Math.random()), name: "", target: { sets: "", reps: { min: "", max: "" } }, restSeconds: "", intention: "" },
     ]);
   };
 
@@ -199,7 +198,6 @@ export default function ProgramEditPage() {
           target_reps: Number(ex.target.reps.min),
           rest_seconds: Number(ex.restSeconds),
           intention: ex.intention?.trim() || null,
-          note: ex.note?.trim() || null,
           order: index,
         }));
 
@@ -360,16 +358,6 @@ export default function ProgramEditPage() {
                 value={ex.intention}
                 onChange={(e) => updateExercise(ex.id, (prev) => ({ ...prev, intention: e.target.value }))}
                 placeholder="예: 가슴 근육 강화"
-                className="mb-3 text-sm"
-              />
-
-              <Input
-                as="textarea"
-                label="메모 (선택)"
-                value={ex.note}
-                onChange={(e) => updateExercise(ex.id, (prev) => ({ ...prev, note: e.target.value }))}
-                placeholder="추가 설명"
-                rows={2}
                 className="text-sm"
               />
 

@@ -33,7 +33,6 @@ export function useProgramForm(options: UseProgramFormOptions = {}) {
         target: { sets: "", reps: { min: "", max: "" } },
         restSeconds: "",
         intention: "",
-        note: "",
       },
     ],
   });
@@ -62,7 +61,6 @@ export function useProgramForm(options: UseProgramFormOptions = {}) {
           target: { sets: "", reps: { min: "", max: "" } },
           restSeconds: "",
           intention: "",
-          note: "",
         },
       ],
     }));
