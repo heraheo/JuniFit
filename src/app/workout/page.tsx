@@ -1,11 +1,34 @@
+"use client";
+
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { ArrowLeft, Dumbbell } from "lucide-react";
 import { Card } from "@/components/ui/Card";
 import { getPrograms } from "@/lib/api";
 import { EmptyState } from "@/components/ui/EmptyState";
+import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
+import type { ProgramWithExercises } from "@/lib/api";
 
-export default async function WorkoutPage() {
-  const programs = await getPrograms();
+export default function WorkoutPage() {
+  const [programs, setPrograms] = useState<ProgramWithExercises[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    async function fetchPrograms() {
+      const data = await getPrograms();
+      setPrograms(data);
+      setLoading(false);
+    }
+    fetchPrograms();
+  }, []);
+
+  if (loading) {
+    return (
+      <div className="min-h-screen px-4 pt-6 pb-8 bg-gray-50 flex items-center justify-center">
+        <LoadingSpinner />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen px-4 pt-6 pb-8 bg-gray-50">

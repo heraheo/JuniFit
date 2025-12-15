@@ -1,7 +1,11 @@
+"use client";
+
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { ArrowLeft, Calendar, Dumbbell, TrendingUp, CheckCircle } from "lucide-react";
 import { Card } from "@/components/ui/Card";
 import { getDashboardData } from "@/lib/api";
+import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
 
 type DashboardData = {
   totalSessions: number;
@@ -48,8 +52,26 @@ const getMonthName = (month: number) => {
   return months[month];
 };
 
-export default async function DashboardPage() {
-  const data = await getDashboardData();
+export default function DashboardPage() {
+  const [data, setData] = useState<DashboardData | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    async function fetchData() {
+      const dashboardData = await getDashboardData();
+      setData(dashboardData);
+      setLoading(false);
+    }
+    fetchData();
+  }, []);
+
+  if (loading) {
+    return (
+      <div className="min-h-screen px-4 pt-6 pb-8 bg-gray-50 flex items-center justify-center">
+        <LoadingSpinner />
+      </div>
+    );
+  }
 
   if (!data) {
     return (

@@ -1,12 +1,34 @@
+"use client";
+
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { ArrowLeft, Dumbbell } from "lucide-react";
 import { getWorkoutLogs } from "@/lib/api";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { HistoryClient } from "./HistoryClient";
+import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
+import type { WorkoutLogDetail } from "@/types/database";
 
-export default async function LogsPage() {
-  // 초기에는 10개만 로드 (Pagination)
-  const logs = await getWorkoutLogs(10, 0);
+export default function LogsPage() {
+  const [logs, setLogs] = useState<WorkoutLogDetail[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    async function fetchLogs() {
+      const data = await getWorkoutLogs(10, 0);
+      setLogs(data);
+      setLoading(false);
+    }
+    fetchLogs();
+  }, []);
+
+  if (loading) {
+    return (
+      <div className="min-h-screen px-4 pt-6 pb-8 bg-gray-50 flex items-center justify-center">
+        <LoadingSpinner />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen px-4 pt-6 pb-8 bg-gray-50">
