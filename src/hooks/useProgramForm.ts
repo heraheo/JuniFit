@@ -4,6 +4,7 @@ import { validateNumericInput, validateProgramForm, type ExerciseInput } from "@
 interface ProgramFormState {
   title: string;
   description: string;
+  rpe: string;
   exercises: ExerciseInput[];
 }
 
@@ -19,6 +20,7 @@ interface ProgramFormValidation {
 interface UseProgramFormOptions {
   initialTitle?: string;
   initialDescription?: string;
+  initialRpe?: string;
   initialExercises?: ExerciseInput[];
 }
 
@@ -26,6 +28,7 @@ export function useProgramForm(options: UseProgramFormOptions = {}) {
   const [formState, setFormState] = useState<ProgramFormState>({
     title: options.initialTitle || "",
     description: options.initialDescription || "",
+    rpe: options.initialRpe || "",
     exercises: options.initialExercises || [
       {
         id: String(Date.now()),
@@ -48,6 +51,10 @@ export function useProgramForm(options: UseProgramFormOptions = {}) {
 
   const setDescription = useCallback((description: string) => {
     setFormState((prev) => ({ ...prev, description }));
+  }, []);
+
+  const setRpe = useCallback((rpe: string) => {
+    setFormState((prev) => ({ ...prev, rpe }));
   }, []);
 
   const addExercise = useCallback(() => {
@@ -141,6 +148,7 @@ export function useProgramForm(options: UseProgramFormOptions = {}) {
     actions: {
       setTitle,
       setDescription,
+      setRpe,
       addExercise,
       updateExercise,
       removeExercise,

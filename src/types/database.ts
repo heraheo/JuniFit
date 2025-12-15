@@ -3,6 +3,7 @@ export type Program = {
   id: string;
   title: string;
   description?: string;
+  rpe?: number;
   created_at: string;
 };
 

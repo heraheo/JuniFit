@@ -20,12 +20,11 @@ export default function Page() {
 
   useEffect(() => {
     const getUserAndProfile = async () => {
-      // 병렬 요청으로 최적화: user 조회 후 즉시 profile 조회 시작
       const { data: { user } } = await supabase.auth.getUser();
       setUser(user);
 
       if (user) {
-        // user가 있으면 바로 프로필 조회 (병렬 처리 효과)
+        // 프로필 정보 가져오기
         const { data: profileData } = await supabase
           .from('profiles')
           .select('nickname, avatar_url')
@@ -158,7 +157,7 @@ export default function Page() {
         </div>
 
         {/* 프로그램 관리 버튼 */}
-        <Link href="/programs/manage" className="w-full gap-6 mb-3">
+        <Link href="/programs/manage" className="w-full mb-5">
           <Card padding="sm" hover className="flex items-center justify-center gap-3">
             <FolderOpen className="w-5 h-5 text-blue-600" />
             <span className="text-base font-medium text-slate-800">저장된 프로그램 목록 관리</span>
@@ -166,7 +165,7 @@ export default function Page() {
         </Link>
 
         {/* 운동 기록 보기 버튼 */}
-        <Link href="/history" className="w-full mb-3">
+        <Link href="/history" className="w-full mb-5">
           <Card padding="sm" hover className="flex items-center justify-center gap-3">
             <History className="w-5 h-5 text-green-600" />
             <span className="text-base font-medium text-slate-800">지난 운동 기록 보기</span>

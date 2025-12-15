@@ -68,6 +68,7 @@ export default function Page() {
           user_id: user.id,
           title: formState.title.trim(),
           description: formState.description.trim(),
+          rpe: formState.rpe.trim() !== "" ? Number(formState.rpe) : null,
         })
         .select()
         .single();
@@ -150,6 +151,24 @@ export default function Page() {
             placeholder="프로그램의 전체 가이드를 입력하세요"
             error={validation.errors.description}
             rows={3}
+          />
+        </Card>
+
+        {/* RPE 입력 */}
+        <Card padding="sm">
+          <Input
+            label="RPE (운동 자각도, 선택)"
+            type="text"
+            inputMode="numeric"
+            value={formState.rpe}
+            onChange={(e) => {
+              const value = e.target.value;
+              if (value === "" || (/^\d+$/.test(value) && Number(value) >= 1 && Number(value) <= 10)) {
+                actions.setRpe(value);
+              }
+            }}
+            placeholder="1~10 사이의 강도 (예: 8은 2개 더 가능)"
+            helperText="RPE는 1~10 사이의 정수입니다. 예: 7은 3개 더 가능, 8은 2개 더 가능"
           />
         </Card>
 

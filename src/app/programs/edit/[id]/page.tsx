@@ -20,6 +20,7 @@ export default function ProgramEditPage() {
   const [loading, setLoading] = useState(true);
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
+  const [rpe, setRpe] = useState("");
   const [exercises, setExercises] = useState<ExerciseInput[]>([]);
   const [errors, setErrors] = useState<{
     title?: string;
@@ -58,6 +59,7 @@ export default function ProgramEditPage() {
 
       setTitle(program.title);
       setDescription(program.description || '');
+      setRpe(program.rpe ? String(program.rpe) : '');
 
       // DB 데이터를 UI 형식으로 변환
       const convertedExercises: ExerciseInput[] = (programExercises || []).map((ex) => ({
@@ -165,6 +167,7 @@ export default function ProgramEditPage() {
         .update({
           title: title.trim(),
           description: description.trim(),
+          rpe: rpe.trim() !== "" ? Number(rpe) : null,
         })
         .eq('id', programId);
 
@@ -261,6 +264,24 @@ export default function ProgramEditPage() {
             placeholder="프로그램의 전체 가이드를 입력하세요"
             error={errors.description}
             rows={3}
+          />
+        </Card>
+
+        {/* RPE 입력 */}
+        <Card padding="sm">
+          <Input
+            label="RPE (운동 자각도, 선택)"
+            type="text"
+            inputMode="numeric"
+            value={rpe}
+            onChange={(e) => {
+              const value = e.target.value;
+              if (value === "" || (/^\d+$/.test(value) && Number(value) >= 1 && Number(value) <= 10)) {
+                setRpe(value);
+              }
+            }}
+            placeholder="1~10 사이의 강도 (예: 8은 2개 더 가능)"
+            helperText="RPE는 1~10 사이의 정수입니다. 예: 7은 3개 더 가능, 8은 2개 더 가능"
           />
         </Card>
 
