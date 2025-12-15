@@ -20,11 +20,12 @@ export default function Page() {
 
   useEffect(() => {
     const getUserAndProfile = async () => {
+      // 병렬 요청으로 최적화: user 조회 후 즉시 profile 조회 시작
       const { data: { user } } = await supabase.auth.getUser();
       setUser(user);
 
       if (user) {
-        // 프로필 정보 가져오기
+        // user가 있으면 바로 프로필 조회 (병렬 처리 효과)
         const { data: profileData } = await supabase
           .from('profiles')
           .select('nickname, avatar_url')

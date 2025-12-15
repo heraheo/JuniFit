@@ -18,7 +18,6 @@ export default function ProgramsManagePage() {
   const [loading, setLoading] = useState(true);
   const [deleting, setDeleting] = useState<string | null>(null);
   const [expandedProgram, setExpandedProgram] = useState<string | null>(null);
-  const [loadingExercises, setLoadingExercises] = useState<string | null>(null);
 
   useEffect(() => {
     fetchPrograms();
@@ -27,54 +26,48 @@ export default function ProgramsManagePage() {
   async function fetchPrograms() {
     setLoading(true);
     const supabase = createClient();
-    // 소프트 삭제: is_archived가 false인 항목만 조회
-    const { data, error } = await supabase
-      .from('programs')
-      .select('*')
-      .eq('is_archived', false)
-      .order('created_at', { ascending: false });
+    
+    // 프로그램 목록과 모든 운동 목록을 병렬로 조회하여 속도 개선
+    const [programsResult, exercisesResult] = await Promise.all([
+      supabase
+        .from('programs')
+        .select('*')
+        .eq('is_archived', false)
+        .order('created_at', { ascending: false }),
+      supabase
+        .from('program_exercises')
+        .select('*')
+        .order('order', { ascending: true })
+    ]);
 
-    if (error) {
-      console.error('Error fetching programs:', error);
+    const { data: programsData, error: programsError } = programsResult;
+    const { data: allExercises, error: exercisesError } = exercisesResult;
+
+    if (programsError) {
+      console.error('Error fetching programs:', programsError);
       alert('프로그램 목록을 불러오는데 실패했습니다.');
+      setPrograms([]);
+    } else if (exercisesError) {
+      console.error('Error fetching exercises:', exercisesError);
+      setPrograms(programsData || []);
     } else {
-      setPrograms(data || []);
+      // 각 프로그램에 해당하는 운동 목록 매핑
+      const programsWithExercises = (programsData || []).map(program => ({
+        ...program,
+        exercises: allExercises?.filter(ex => ex.program_id === program.id) || []
+      }));
+      setPrograms(programsWithExercises);
     }
     setLoading(false);
   }
 
-  // 프로그램 펼치기/접기 및 운동 목록 로드
-  async function toggleProgram(programId: string) {
+  // 프로그램 펼치기/접기 (운동 목록은 이미 로드되어 있음)
+  function toggleProgram(programId: string) {
     if (expandedProgram === programId) {
       setExpandedProgram(null);
-      return;
-    }
-
-    // 이미 운동 목록이 로드되어 있는지 확인
-    const program = programs.find(p => p.id === programId);
-    if (program?.exercises) {
+    } else {
       setExpandedProgram(programId);
-      return;
     }
-
-    // 운동 목록 로드
-    setLoadingExercises(programId);
-    setExpandedProgram(programId);
-
-    const supabase = createClient();
-    const { data: exercises, error } = await supabase
-      .from('program_exercises')
-      .select('*')
-      .eq('program_id', programId)
-      .order('order', { ascending: true });
-
-    if (!error && exercises) {
-      setPrograms(prev => prev.map(p => 
-        p.id === programId ? { ...p, exercises } : p
-      ));
-    }
-
-    setLoadingExercises(null);
   }
 
   async function handleDelete(program: Program) {
@@ -172,9 +165,7 @@ export default function ProgramsManagePage() {
                   {/* 운동 목록 (펼침) */}
                   {isExpanded && (
                     <div className="border-t border-gray-100 bg-gray-50 p-4">
-                      {loadingExercises === program.id ? (
-                        <p className="text-sm text-slate-500 text-center py-4">운동 목록 로딩 중...</p>
-                      ) : program.exercises && program.exercises.length > 0 ? (
+                      {program.exercises && program.exercises.length > 0 ? (
                         <div className="space-y-3">
                           <p className="text-xs font-medium text-slate-500 uppercase tracking-wide mb-2">
                             운동 목록 ({program.exercises.length}개)

@@ -34,23 +34,26 @@ export default function ProgramEditPage() {
     setLoading(true);
     try {
       const supabase = createClient();
-      // 프로그램 정보 가져오기
-      const { data: program, error: programError } = await supabase
-        .from('programs')
-        .select('*')
-        .eq('id', programId)
-        .single();
+      
+      // 프로그램 정보와 운동 목록을 병렬로 조회하여 속도 개선
+      const [programResult, exercisesResult] = await Promise.all([
+        supabase
+          .from('programs')
+          .select('*')
+          .eq('id', programId)
+          .single(),
+        supabase
+          .from('program_exercises')
+          .select('*')
+          .eq('program_id', programId)
+          .order('order', { ascending: true })
+      ]);
+
+      const { data: program, error: programError } = programResult;
+      const { data: programExercises, error: exercisesError } = exercisesResult;
 
       if (programError) throw programError;
       if (!program) throw new Error('프로그램을 찾을 수 없습니다.');
-
-      // 프로그램 운동 목록 가져오기
-      const { data: programExercises, error: exercisesError } = await supabase
-        .from('program_exercises')
-        .select('*')
-        .eq('program_id', programId)
-        .order('order', { ascending: true });
-
       if (exercisesError) throw exercisesError;
 
       setTitle(program.title);

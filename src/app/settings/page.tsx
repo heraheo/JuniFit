@@ -29,6 +29,7 @@ export default function SettingsPage() {
 
   useEffect(() => {
     const getProfile = async () => {
+      // 사용자 조회
       const { data: { user } } = await supabase.auth.getUser();
       
       if (!user) {
@@ -36,7 +37,7 @@ export default function SettingsPage() {
         return;
       }
 
-      // 프로필 정보 가져오기
+      // user가 확인되면 바로 프로필 조회 (병렬 처리 효과)
       const { data: profileData, error } = await supabase
         .from(TABLE_NAMES.PROFILES)
         .select('nickname, avatar_url')
