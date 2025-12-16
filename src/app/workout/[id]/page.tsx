@@ -27,22 +27,21 @@ export default function WorkoutDetailPage({ params }: Props) {
   // 운동 카드 참조 (스크롤용)
   const exerciseRefs = useRef<Record<string, HTMLDivElement | null>>({});
   
+  // 휴식 타이머 훅 (세트 간 휴식용)
+  const timer = useRestTimer(() => {
+    // 타이머 종료 시 아무 동작 안 함
+  });
+  
   // 세션 관리 훅
   const session = useWorkoutSession({
     program,
     sessionId,
-    onComplete: () => {
-      if (program) {
-        const exercise = program.exercises[session.currentIndex];
-        const restTime = exercise.rest_seconds || 60;
-        timer.start(restTime);
-      }
+    onSetComplete: (restSeconds: number) => {
+      // 세트 완료 시 타이머 시작
+      timer.start(restSeconds);
     },
     exerciseRefs,
   });
-  
-  // 휴식 타이머 훅
-  const timer = useRestTimer(() => session.actions.moveToNext());
 
   useEffect(() => {
     async function fetchProgram() {
@@ -96,6 +95,8 @@ export default function WorkoutDetailPage({ params }: Props) {
 
   // 진행률 계산
   const progressPercentage = ((session.currentIndex) / program.exercises.length) * 100;
+  const currentExercise = program.exercises[session.currentIndex];
+  const isLastExercise = session.currentIndex === program.exercises.length - 1;
 
   return (
     <div className="min-h-screen px-4 pt-6 pb-32 bg-gray-50">
@@ -138,216 +139,188 @@ export default function WorkoutDetailPage({ params }: Props) {
         </Card>
 
         {/* 운동 목록 */}
-        <section className="flex flex-col gap-4">
-          {program.exercises.map((exercise, exerciseIndex) => {
-            const isCompleted = exerciseIndex < session.currentIndex;
-            const isCurrent = exerciseIndex === session.currentIndex;
-            const isLocked = exerciseIndex > session.currentIndex;
-            const isLastExercise = exerciseIndex === program.exercises.length - 1;
-
-            return (
-              <div 
-                key={exercise.id}
-                ref={(el) => { exerciseRefs.current[exercise.id] = el; }}
-                className={`bg-white rounded-xl shadow-md transition-all duration-300 overflow-hidden ${
-                  isCompleted ? "opacity-60" : ""
-                } ${isCurrent ? "ring-2 ring-blue-500" : ""}`}
-              >
-                {/* 운동 헤더 */}
-                <div
-                  className={`p-4 transition-colors ${
-                    isCompleted ? "bg-green-50" : 
-                    isCurrent ? "bg-blue-50" : 
-                    "bg-gray-50"
-                  }`}
-                >
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
-                        isCompleted ? "bg-green-500" :
-                        isCurrent ? "bg-blue-500" :
-                        "bg-gray-300"
-                      }`}>
-                        {isCompleted ? (
-                          <Check className="w-5 h-5 text-white" />
-                        ) : isLocked ? (
-                          <Lock className="w-4 h-4 text-white" />
-                        ) : (
-                          <span className="text-white font-bold text-sm">{exerciseIndex + 1}</span>
-                        )}
-                      </div>
-                      
-                      <div>
-                        <h3 className={`font-semibold ${
-                          isCompleted ? "text-green-800" : 
-                          isCurrent ? "text-blue-800" : 
-                          "text-slate-500"
-                        }`}>
-                          {exercise.name}
-                        </h3>
-                        <div className="flex items-center gap-2 mt-0.5">
+        <section className="flex flex-col gap-4 mb-6">
+          <div 
+            ref={(el) => { exerciseRefs.current[currentExercise.id] = el; }}
+            className="bg-white rounded-xl shadow-lg ring-2 ring-blue-500 overflow-hidden"
+          >
+            {/* 운동 헤더 */}
+            <div className="p-4 bg-blue-50">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-full flex items-center justify-center bg-blue-500">
+                    <span className="text-white font-bold text-sm">{session.currentIndex + 1}</span>
+                  </div>
+                  
+                  <div>
+                    <h3 className="font-semibold text-blue-800">
+                      {currentExercise.name}
+                    </h3>
+                    <div className="flex items-center gap-2 mt-0.5">
+                      <span className="text-xs text-slate-500">
+                        {currentExercise.target_sets}세트 × {currentExercise.target_reps}회
+                      </span>
+                      {currentExercise.rest_seconds && (
+                        <>
+                          <span className="text-xs text-slate-400">•</span>
                           <span className="text-xs text-slate-500">
-                            {exercise.target_sets}세트 × {exercise.target_reps}회
+                            휴식 {currentExercise.rest_seconds}초
                           </span>
-                          {exercise.rest_seconds && (
-                            <>
-                              <span className="text-xs text-slate-400">•</span>
-                              <span className="text-xs text-slate-500">
-                                휴식 {exercise.rest_seconds}초
-                              </span>
-                            </>
-                          )}
-                        </div>
-                      </div>
+                        </>
+                      )}
                     </div>
                   </div>
                 </div>
-
-                {/* 운동 입력 영역 (현재 운동만 펼침) */}
-                {isCurrent && (
-                  <div className="p-4 border-t border-gray-100">
-                    {exercise.intention && (
-                      <div className="mb-4 p-3 bg-yellow-50 rounded-lg border border-yellow-100">
-                        <p className="text-sm text-yellow-800">
-                          💡 {exercise.intention}
-                        </p>
-                      </div>
-                    )}
-                    
-                    <div className="space-y-4">
-                      {Array.from({ length: exercise.target_sets }, (_, setIndex) => (
-                        <div key={setIndex} className="grid grid-cols-[auto_1fr_1fr] gap-3 items-start">
-                          <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
-                            <span className="text-sm font-bold text-blue-800">
-                              {setIndex + 1}
-                            </span>
-                          </div>
-                          
-                          <div>
-                            <input
-                              type="text"
-                              inputMode="numeric"
-                              placeholder="kg"
-                              value={session.inputs[exercise.id]?.[setIndex]?.weight || ""}
-                              onChange={(e) => session.actions.updateInput(exercise.id, setIndex, "weight", e.target.value)}
-                              className={`w-full p-3 border rounded-lg text-center font-medium focus:outline-none focus:ring-2 ${
-                                session.errors[exercise.id]?.[setIndex]?.weight
-                                  ? "border-red-300 focus:ring-red-500"
-                                  : "border-gray-300 focus:ring-blue-500"
-                              }`}
-                            />
-                            <label className="block text-xs text-center text-slate-500 mt-1">무게</label>
-                          </div>
-
-                          <div>
-                            <input
-                              type="text"
-                              inputMode="numeric"
-                              placeholder="회"
-                              value={session.inputs[exercise.id]?.[setIndex]?.reps || ""}
-                              onChange={(e) => session.actions.updateInput(exercise.id, setIndex, "reps", e.target.value)}
-                              className={`w-full p-3 border rounded-lg text-center font-medium focus:outline-none focus:ring-2 ${
-                                session.errors[exercise.id]?.[setIndex]?.reps
-                                  ? "border-red-300 focus:ring-red-500"
-                                  : "border-gray-300 focus:ring-blue-500"
-                              }`}
-                            />
-                            <label className="block text-xs text-center text-slate-500 mt-1">횟수</label>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-
-                    {/* 메모 입력 영역 */}
-                    <div className="mt-4">
-                      <label className="block text-sm font-medium text-slate-700 mb-2">
-                        운동 메모
-                      </label>
-                      <textarea
-                        placeholder="이 운동에 대한 메모를 입력하세요 (선택사항)"
-                        value={session.notes[exercise.id] || ""}
-                        onChange={(e) => session.actions.updateNote(exercise.id, e.target.value)}
-                        className="w-full p-3 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
-                        rows={3}
-                      />
-                    </div>
-
-                    {/* 버튼 구분선 */}
-                    <div className="mt-6 pt-5 border-t-2 border-dashed border-gray-200">
-                      <Button
-                        onClick={() => session.actions.completeExercise(exerciseIndex)}
-                        disabled={!session.actions.isCurrentValid()}
-                        isLoading={session.isSaving}
-                        fullWidth
-                        size="lg"
-                        className={isLastExercise ? "bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 shadow-lg ring-2 ring-green-300 ring-offset-2" : "shadow-lg ring-2 ring-blue-300 ring-offset-2"}
-                      >
-                        {isLastExercise ? (
-                          <>
-                            <Check className="w-5 h-5" />
-                            운동 완료!
-                          </>
-                        ) : (
-                          <>
-                            <Timer className="w-5 h-5" />
-                            운동 완료 & 휴식 시작
-                          </>
-                        )}
-                      </Button>
-                    </div>
-                  </div>
-                )}
-
-                {isCompleted && (
-                  <div className="px-4 pb-4 space-y-2">
-                    <div className="flex flex-wrap gap-2">
-                      {session.inputs[exercise.id]?.map((set, idx) => (
-                        set.weight && set.reps ? (
-                          <span key={idx} className="text-xs bg-green-100 text-green-800 px-2 py-1 rounded">
-                            {idx + 1}세트: {set.weight}kg × {set.reps}회
-                          </span>
-                        ) : null
-                      ))}
-                    </div>
-                    {session.notes[exercise.id] && (
-                      <div className="mt-2 p-2 bg-gray-50 rounded text-xs text-gray-700 border border-gray-200">
-                        <span className="font-medium">메모:</span> {session.notes[exercise.id]}
-                      </div>
-                    )}
-                  </div>
-                )}
               </div>
-            );
-          })}
+            </div>
+
+            {/* 운동 입력 영역 */}
+            <div className="p-4 border-t border-gray-100">
+              {currentExercise.intention && (
+                <div className="mb-4 p-3 bg-yellow-50 rounded-lg border border-yellow-100">
+                  <p className="text-sm text-yellow-800">
+                    💡 {currentExercise.intention}
+                  </p>
+                </div>
+              )}
+              
+              <div className="space-y-3">
+                {Array.from({ length: currentExercise.target_sets }, (_, setIndex) => {
+                  const setData = session.inputs[currentExercise.id]?.[setIndex];
+                  const isCompleted = setData?.completed || false;
+
+                  return (
+                    <div 
+                      key={setIndex} 
+                      className={`grid grid-cols-[auto_1fr_1fr_auto] gap-3 items-center p-3 rounded-lg transition-all ${
+                        isCompleted ? 'bg-green-50 border border-green-200' : 'bg-gray-50'
+                      }`}
+                    >
+                      <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
+                        isCompleted ? 'bg-green-500' : 'bg-blue-100'
+                      }`}>
+                        <span className={`text-sm font-bold ${
+                          isCompleted ? 'text-white' : 'text-blue-800'
+                        }`}>
+                          {setIndex + 1}
+                        </span>
+                      </div>
+                      
+                      <div>
+                        <input
+                          type="text"
+                          inputMode="numeric"
+                          placeholder="kg"
+                          value={setData?.weight || ""}
+                          onChange={(e) => session.actions.updateInput(currentExercise.id, setIndex, "weight", e.target.value)}
+                          disabled={isCompleted}
+                          className={`w-full p-2 border rounded-lg text-center font-medium focus:outline-none focus:ring-2 ${
+                            isCompleted 
+                              ? 'bg-white border-green-300 text-green-800' 
+                              : session.errors[currentExercise.id]?.[setIndex]?.weight
+                              ? "border-red-300 focus:ring-red-500"
+                              : "border-gray-300 focus:ring-blue-500"
+                          }`}
+                        />
+                        <label className="block text-xs text-center text-slate-500 mt-1">무게</label>
+                      </div>
+
+                      <div>
+                        <input
+                          type="text"
+                          inputMode="numeric"
+                          placeholder="회"
+                          value={setData?.reps || ""}
+                          onChange={(e) => session.actions.updateInput(currentExercise.id, setIndex, "reps", e.target.value)}
+                          disabled={isCompleted}
+                          className={`w-full p-2 border rounded-lg text-center font-medium focus:outline-none focus:ring-2 ${
+                            isCompleted 
+                              ? 'bg-white border-green-300 text-green-800' 
+                              : session.errors[currentExercise.id]?.[setIndex]?.reps
+                              ? "border-red-300 focus:ring-red-500"
+                              : "border-gray-300 focus:ring-blue-500"
+                          }`}
+                        />
+                        <label className="block text-xs text-center text-slate-500 mt-1">횟수</label>
+                      </div>
+
+                      <button
+                        onClick={() => session.actions.toggleSetComplete(currentExercise.id, setIndex)}
+                        className={`p-2 rounded-lg transition-all ${
+                          isCompleted 
+                            ? 'bg-green-500 hover:bg-green-600' 
+                            : 'bg-blue-500 hover:bg-blue-600'
+                        }`}
+                        title={isCompleted ? '완료 취소' : '세트 완료'}
+                      >
+                        <Check className="w-5 h-5 text-white" />
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* 메모 입력 영역 */}
+              <div className="mt-4">
+                <label className="block text-sm font-medium text-slate-700 mb-2">
+                  운동 메모
+                </label>
+                <textarea
+                  placeholder="이 운동에 대한 메모를 입력하세요 (선택사항)"
+                  value={session.notes[currentExercise.id] || ""}
+                  onChange={(e) => session.actions.updateNote(currentExercise.id, e.target.value)}
+                  className="w-full p-3 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+                  rows={3}
+                />
+              </div>
+            </div>
+          </div>
         </section>
 
-        {/* 오늘의 운동 완료하기 버튼 */}
-        <div className="mt-8 pb-8">
-          <Button
-            onClick={session.actions.completeAll}
-            isLoading={session.isSaving}
-            fullWidth
-            size="lg"
-            variant="secondary"
-            className="shadow-md"
-          >
-            <Check className="w-5 h-5" />
-            오늘의 운동 완료하기
-          </Button>
-          <p className="text-xs text-slate-500 text-center mt-2">
-            현재까지 입력한 기록만 저장됩니다
-          </p>
+        {/* 하단 고정 버튼 */}
+        <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 p-4 shadow-lg">
+          <div className="max-w-md mx-auto">
+            <Button
+              onClick={session.actions.moveToNextExercise}
+              disabled={!session.actions.isCurrentValid()}
+              isLoading={session.isSaving}
+              fullWidth
+              size="lg"
+              className={isLastExercise 
+                ? "bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 shadow-lg" 
+                : "bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 shadow-lg"
+              }
+            >
+              {isLastExercise ? (
+                <>
+                  <Check className="w-5 h-5" />
+                  운동 기록 저장
+                </>
+              ) : (
+                <>
+                  다음 운동으로
+                  <Check className="w-5 h-5" />
+                </>
+              )}
+            </Button>
+            <p className="text-xs text-slate-500 text-center mt-2">
+              {isLastExercise 
+                ? '완료된 세트만 저장됩니다' 
+                : '완료된 세트가 하나 이상 있어야 다음으로 넘어갈 수 있습니다'
+              }
+            </p>
+          </div>
         </div>
       </div>
 
-      {/* 휴식 타이머 모달 */}
+      {/* 휴식 타이머 모달 (세트 간 휴식) */}
       {timer.isOpen && (
         <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center p-4 z-50">
           <div className="bg-white rounded-2xl p-8 max-w-sm w-full text-center">
             <div className="mb-6">
               <Timer className="w-16 h-16 text-blue-600 mx-auto mb-4" />
-              <h2 className="text-xl font-bold text-slate-800 mb-2">휴식 시간</h2>
-              <p className="text-slate-600">잠시 쉬고 다음 운동을 준비하세요</p>
+              <h2 className="text-xl font-bold text-slate-800 mb-2">세트 간 휴식</h2>
+              <p className="text-slate-600">잠시 쉬고 다음 세트를 준비하세요</p>
             </div>
             
             <div className="mb-8">
@@ -369,15 +342,6 @@ export default function WorkoutDetailPage({ params }: Props) {
               </div>
             </div>
 
-            {session.currentIndex + 1 < program.exercises.length && (
-              <div className="mb-6 p-4 bg-gray-50 rounded-xl">
-                <p className="text-sm text-slate-500 mb-1">다음 운동</p>
-                <p className="font-semibold text-slate-800">
-                  {program.exercises[session.currentIndex + 1].name}
-                </p>
-              </div>
-            )}
-
             <Button
               onClick={timer.skip}
               fullWidth
@@ -385,11 +349,79 @@ export default function WorkoutDetailPage({ params }: Props) {
               variant="primary"
               className="shadow-md"
             >
-              다음 운동 시작하기
+              휴식 건너뛰기
             </Button>
           </div>
         </div>
       )}
+
+      {/* 운동 완료 팝업 */}
+      {session.showCompletionModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-2xl p-6 max-w-md w-full max-h-[80vh] overflow-y-auto">
+            <div className="text-center mb-6">
+              <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                <span className="text-4xl">🎉</span>
+              </div>
+              <h2 className="text-2xl font-bold text-slate-800 mb-2">운동 완료!</h2>
+              <p className="text-slate-600">오늘도 수고하셨습니다</p>
+            </div>
+
+            <div className="mb-6">
+              <h3 className="font-semibold text-slate-800 mb-3">오늘의 운동 기록</h3>
+              <div className="space-y-3">
+                {program?.exercises.map((exercise) => {
+                  const inputs = session.inputs[exercise.id] || [];
+                  const completedSets = inputs.filter(set => set.completed);
+                  
+                  if (completedSets.length === 0) return null;
+                  
+                  return (
+                    <div key={exercise.id} className="bg-gray-50 rounded-lg p-3">
+                      <h4 className="font-medium text-slate-700 mb-2">{exercise.name}</h4>
+                      <div className="space-y-1">
+                        {completedSets.map((set, index) => (
+                          <div key={index} className="flex justify-between text-sm">
+                            <span className="text-slate-600">{index + 1}세트</span>
+                            <span className="text-slate-800">{set.weight}kg × {set.reps}회</span>
+                          </div>
+                        ))}
+                      </div>
+                      {session.notes[exercise.id] && (
+                        <div className="mt-2 pt-2 border-t border-gray-200">
+                          <p className="text-xs text-gray-600">
+                            <span className="font-medium">메모:</span> {session.notes[exercise.id]}
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div className="flex gap-3">
+              <Button
+                onClick={() => router.push('/dashboard')}
+                variant="outline"
+                className="flex-1"
+              >
+                대시보드 보기
+              </Button>
+              <Button
+                onClick={() => router.push('/')}
+                variant="primary"
+                className="flex-1"
+              >
+                홈으로 이동
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
 
       {/* 운동 완료 팝업 */}
       {session.showCompletionModal && (

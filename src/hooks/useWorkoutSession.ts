@@ -5,6 +5,7 @@ import type { ProgramWithExercises } from '@/lib/api';
 type SetInput = {
   weight: string;
   reps: string;
+  completed: boolean;
 };
 
 type ExerciseNotes = {
@@ -23,7 +24,7 @@ type InputErrors = {
 interface UseWorkoutSessionOptions {
   program: ProgramWithExercises | null;
   sessionId: string | null;
-  onComplete: () => void;
+  onSetComplete: (restSeconds: number) => void;
   exerciseRefs: React.MutableRefObject<Record<string, HTMLDivElement | null>>;
 }
 
@@ -35,12 +36,12 @@ interface UseWorkoutSessionReturn {
   isSaving: boolean;
   showCompletionModal: boolean;
   actions: {
-    updateInput: (exerciseId: string, setIndex: number, field: keyof SetInput, value: string) => void;
+    updateInput: (exerciseId: string, setIndex: number, field: keyof Omit<SetInput, 'completed'>, value: string) => void;
+    toggleSetComplete: (exerciseId: string, setIndex: number) => void;
     updateNote: (exerciseId: string, note: string) => void;
     isCurrentValid: () => boolean;
-    completeExercise: (exerciseIndex: number) => void;
+    moveToNextExercise: () => void;
     completeAll: () => Promise<void>;
-    moveToNext: () => void;
     closeModal: () => void;
     initializeInputs: (program: ProgramWithExercises) => void;
   };
@@ -49,7 +50,7 @@ interface UseWorkoutSessionReturn {
 export function useWorkoutSession({
   program,
   sessionId,
-  onComplete,
+  onSetComplete,
   exerciseRefs,
 }: UseWorkoutSessionOptions): UseWorkoutSessionReturn {
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -76,7 +77,7 @@ export function useWorkoutSession({
   }, []);
 
   // 세트 입력값 업데이트
-  const updateInput = useCallback((exerciseId: string, setIndex: number, field: keyof SetInput, value: string) => {
+  const updateInput = useCallback((exerciseId: string, setIndex: number, field: keyof Omit<SetInput, 'completed'>, value: string) => {
     if (value !== '' && !/^\d*\.?\d*$/.test(value)) {
       return;
     }
@@ -116,16 +117,60 @@ export function useWorkoutSession({
     }));
   }, []);
 
-  // 현재 운동의 입력이 유효한지 확인
+  // 세트 완료 토글
+  const toggleSetComplete = useCallback((exerciseId: string, setIndex: number) => {
+    if (!program) return;
+
+    const exercise = program.exercises.find(ex => ex.id === exerciseId);
+    if (!exercise) return;
+
+    const currentSet = inputs[exerciseId]?.[setIndex];
+    if (!currentSet) return;
+
+    // 입력값 검증
+    const weight = currentSet.weight.trim();
+    const reps = currentSet.reps.trim();
+
+    if (weight === '' || reps === '') {
+      alert('무게와 횟수를 입력해주세요.');
+      return;
+    }
+
+    const weightNum = parseFloat(weight);
+    const repsNum = parseFloat(reps);
+
+    if (isNaN(weightNum) || weightNum <= 0 || isNaN(repsNum) || repsNum <= 0) {
+      alert('올바른 값을 입력해주세요.');
+      return;
+    }
+
+    const newCompletedState = !currentSet.completed;
+
+    setInputs(prev => ({
+      ...prev,
+      [exerciseId]: prev[exerciseId].map((set, idx) => 
+        idx === setIndex ? { ...set, completed: newCompletedState } : set
+      )
+    }));
+
+    // 세트를 완료(체크)하는 경우에만 타이머 시작
+    if (newCompletedState && exercise.rest_seconds) {
+      onSetComplete(exercise.rest_seconds);
+    }
+  }, [program, inputs, onSetComplete]);
+
+  // 현재 운동의 입력이 유효한지 확인 (완료된 세트가 하나 이상 있는지)
   const isCurrentValid = useCallback(() => {
     if (!program) return false;
     const exercise = program.exercises[currentIndex];
+    if (!exercise) return false;
+    
     const exerciseInputs = inputs[exercise.id] || [];
-    return exerciseInputs.some(set => set.weight.trim() !== '' && set.reps.trim() !== '');
+    return exerciseInputs.some(set => set.completed);
   }, [program, currentIndex, inputs]);
 
-  // 다음 운동으로 이동
-  const moveToNext = useCallback(() => {
+  // 다음 운동으로 이동 (타이머 없음)
+  const moveToNextExercise = useCallback(() => {
     if (!program) return;
     
     const nextIndex = currentIndex + 1;
@@ -157,10 +202,13 @@ export function useWorkoutSession({
           const exerciseInputs = inputs[exercise.id] || [];
           const exerciseNote = notes[exercise.id] || '';
           
-          for (let i = 0; i < exercise.target_sets; i++) {
-            const set = exerciseInputs[i];
-            const weight = set?.weight.trim() !== '' ? parseFloat(set.weight) : 0;
-            const reps = set?.reps.trim() !== '' ? parseInt(set.reps) : 0;
+          // 완료된 세트만 저장
+          const completedSets = exerciseInputs.filter(set => set.completed);
+          
+          for (let i = 0; i < completedSets.length; i++) {
+            const set = completedSets[i];
+            const weight = parseFloat(set.weight) || 0;
+            const reps = parseInt(set.reps) || 0;
             
             const result = await saveWorkoutSet(
               sessionId,
@@ -194,19 +242,6 @@ export function useWorkoutSession({
     }
   }, [isSaving, program, sessionId, inputs, notes]);
 
-  // 개별 운동 완료
-  const completeExercise = useCallback((exerciseIndex: number) => {
-    if (!program) return;
-    
-    const isLastExercise = exerciseIndex === program.exercises.length - 1;
-    
-    if (isLastExercise) {
-      completeAll();
-    } else {
-      onComplete();
-    }
-  }, [program, onComplete, completeAll]);
-
   // 입력값 초기화
   const initializeInputs = useCallback((programData: ProgramWithExercises) => {
     const initialInputs: Record<string, SetInput[]> = {};
@@ -216,6 +251,7 @@ export function useWorkoutSession({
       initialInputs[exercise.id] = Array(exercise.target_sets).fill(null).map(() => ({
         weight: "",
         reps: "",
+        completed: false,
       }));
       initialNotes[exercise.id] = "";
     });
@@ -238,11 +274,11 @@ export function useWorkoutSession({
     showCompletionModal,
     actions: {
       updateInput,
+      toggleSetComplete,
       updateNote,
       isCurrentValid,
-      completeExercise,
+      moveToNextExercise,
       completeAll,
-      moveToNext,
       closeModal,
       initializeInputs,
     },
