@@ -1,6 +1,7 @@
 {
   "name": "JuniFit",
   "short_name": "JuniFit",
+  "version": "2.0.0",
   "description": "개인 운동 기록 및 관리 웹 앱",
   "start_url": "/",
   "display": "standalone",
