@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import Link from "next/link";
 import { Calendar, ChevronDown, ChevronRight, Trash2, Edit3, X, Save } from "lucide-react";
 import { deleteWorkoutSession, updateWorkoutSet, getWorkoutLogs } from "@/lib/api";
 import type { WorkoutSession, WorkoutSet } from "@/types/database";
@@ -167,13 +166,6 @@ export function HistoryClient({ initialLogs, initialLimit = PAGE_SIZE }: History
                   </div>
                 </div>
                 <div className="flex items-start gap-1">
-                  <Link
-                    href={`/history/${log.id}`}
-                    className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                    onClick={(e) => e.stopPropagation()}
-                  >
-                    <Calendar className="w-4 h-4" />
-                  </Link>
                   {!isEditing && (
                     <>
                       <button

@@ -2,6 +2,7 @@ import "./globals.css";
 import type { ReactNode } from "react";
 import type { Metadata, Viewport } from "next";
 import AuthGuard from "@/components/AuthGuard";
+import PWAUpdater from "@/components/PWAUpdater";
 
 export const metadata: Metadata = {
   title: "JuniFit",
@@ -30,6 +31,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="ko">
       <body className="bg-gray-50">
+        <PWAUpdater />
         <AuthGuard>
           <div className="w-full max-w-md mx-auto min-h-screen">
             {children}

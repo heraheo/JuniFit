@@ -99,22 +99,19 @@ export default function Page() {
         {user && profile && (
           <div className="mb-8 bg-gradient-to-r from-blue-500 to-purple-600 rounded-2xl shadow-xl p-6 text-white">
             <div className="flex items-center gap-4">
-              {/* 아바타 */}
               <div className="w-16 h-16 rounded-full overflow-hidden border-4 border-white shadow-lg bg-white flex-shrink-0">
-                <img 
+                <img
                   src={profile.avatar_url || `https://api.dicebear.com/9.x/notionists/svg?seed=${profile.nickname}`}
                   alt={profile.nickname}
                   className="w-full h-full object-cover"
                 />
               </div>
 
-              {/* 닉네임과 환영 메시지 */}
               <div className="flex-1 min-w-0">
                 <p className="text-sm opacity-90 mb-1">환영합니다!</p>
                 <h2 className="text-2xl font-bold truncate">{profile.nickname}님</h2>
               </div>
 
-              {/* 설정 버튼 */}
               <Link
                 href="/settings"
                 className="p-2 bg-white/20 hover:bg-white/30 rounded-lg transition-colors"
@@ -123,7 +120,6 @@ export default function Page() {
                 <Settings className="w-5 h-5" />
               </Link>
 
-              {/* 로그아웃 버튼 */}
               <button
                 onClick={handleLogout}
                 className="p-2 bg-white/20 hover:bg-white/30 rounded-lg transition-colors"
@@ -156,30 +152,32 @@ export default function Page() {
           </Link>
         </div>
 
-        {/* 프로그램 관리 버튼 */}
-        <Link href="/programs/manage" className="w-full mb-7">
-          <Card padding="sm" hover className="flex items-center justify-center gap-3">
-            <FolderOpen className="w-5 h-5 text-blue-600" />
-            <span className="text-base font-medium text-slate-800">저장된 프로그램 목록 관리</span>
-          </Card>
-        </Link>
+        <div className="w-full flex flex-col gap-8">
+          {/* 프로그램 관리 버튼 */}
+          <Link href="/programs/manage" className="w-full">
+            <Card padding="sm" hover className="flex items-center justify-center gap-3">
+              <FolderOpen className="w-5 h-5 text-blue-600" />
+              <span className="text-base font-medium text-slate-800">저장된 프로그램 목록 관리</span>
+            </Card>
+          </Link>
 
-        {/* 운동 기록 보기 버튼 */}
-        <Link href="/history" className="w-full mb-7">
-          <Card padding="sm" hover className="flex items-center justify-center gap-3">
-            <History className="w-5 h-5 text-green-600" />
-            <span className="text-base font-medium text-slate-800">지난 운동 기록 보기</span>
-          </Card>
-        </Link>
+          {/* 운동 기록 보기 버튼 */}
+          <Link href="/history" className="w-full">
+            <Card padding="sm" hover className="flex items-center justify-center gap-3">
+              <History className="w-5 h-5 text-green-600" />
+              <span className="text-base font-medium text-slate-800">지난 운동 기록 보기</span>
+            </Card>
+          </Link>
 
-        {/* 대시보드 버튼 */}
-        <Link
-          href="/dashboard"
-          className="w-full bg-gradient-to-r from-green-500 to-green-600 rounded-xl shadow-md p-4 flex items-center justify-center gap-3 hover:shadow-lg transition-shadow text-white"
-        >
-          <BarChart3 className="w-5 h-5" />
-          <span className="text-base font-medium">나의 운동 대시보드</span>
-        </Link>
+          {/* 대시보드 버튼 */}
+          <Link
+            href="/dashboard"
+            className="w-full bg-gradient-to-r from-green-500 to-green-600 rounded-xl shadow-md p-4 flex items-center justify-center gap-3 hover:shadow-lg transition-shadow text-white"
+          >
+            <BarChart3 className="w-5 h-5" />
+            <span className="text-base font-medium">나의 운동 대시보드</span>
+          </Link>
+        </div>
 
 
         
