@@ -230,13 +230,11 @@ export function useWorkoutSession({
           const exerciseInputs = inputs[exercise.id] || [];
           const exerciseNote = notes[exercise.id] || '';
           
-          // 완료된 세트만 저장
-          const completedSets = exerciseInputs.filter(set => set.completed);
-          
-          for (let i = 0; i < completedSets.length; i++) {
-            const set = completedSets[i];
-            const weight = parseFloat(set.weight) || 0;
-            const reps = parseInt(set.reps) || 0;
+          // 모든 세트를 저장 (미완료 세트는 0으로)
+          for (let i = 0; i < exerciseInputs.length; i++) {
+            const set = exerciseInputs[i];
+            const weight = set.completed ? (parseFloat(set.weight) || 0) : 0;
+            const reps = set.completed ? (parseInt(set.reps) || 0) : 0;
             
             const result = await saveWorkoutSet(
               sessionId,
