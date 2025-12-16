@@ -173,6 +173,34 @@ export function useWorkoutSession({
   const moveToNextExercise = useCallback(() => {
     if (!program) return;
     
+    // 현재 운동의 미완료 세트 확인
+    const currentExercise = program.exercises[currentIndex];
+    const exerciseInputs = inputs[currentExercise.id] || [];
+    const incompleteSets = exerciseInputs.filter(set => !set.completed && (set.weight.trim() !== '' || set.reps.trim() !== ''));
+    
+    // 미완료 세트가 있으면 확인
+    if (incompleteSets.length > 0) {
+      const confirmed = window.confirm('입력하지 않은 세트가 있습니다. 다음 운동으로 넘어가시겠습니까?');
+      if (!confirmed) {
+        return;
+      }
+      
+      // 확인했으면 미완료 세트를 0으로 저장하고 완료 처리
+      setInputs(prev => ({
+        ...prev,
+        [currentExercise.id]: prev[currentExercise.id].map(set => {
+          if (!set.completed && (set.weight.trim() !== '' || set.reps.trim() !== '')) {
+            return {
+              weight: set.weight.trim() || '0',
+              reps: set.reps.trim() || '0',
+              completed: true,
+            };
+          }
+          return set;
+        })
+      }));
+    }
+    
     const nextIndex = currentIndex + 1;
     
     if (nextIndex >= program.exercises.length) {
@@ -188,7 +216,7 @@ export function useWorkoutSession({
         }
       }, 100);
     }
-  }, [program, currentIndex, exerciseRefs]);
+  }, [program, currentIndex, inputs, exerciseRefs]);
 
   // 모든 운동 완료 처리
   const completeAll = useCallback(async () => {
