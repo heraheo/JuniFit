@@ -152,7 +152,7 @@ export default function Page() {
           </Link>
         </div>
 
-        <div className="w-full flex flex-col gap-8">
+        <div className="w-full flex flex-col gap-6">
           {/* 프로그램 관리 버튼 */}
           <Link href="/programs/manage" className="w-full">
             <Card padding="sm" hover className="flex items-center justify-center gap-3">
