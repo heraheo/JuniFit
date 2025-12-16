@@ -1,156 +1,194 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+
+const AUTH_TIMEOUT_MS = 7000;
+
+function withTimeout<T>(promise: Promise<T> | PromiseLike<T>, label: string): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timer = setTimeout(() => {
+      reject(new Error(`${label} timeout`));
+    }, AUTH_TIMEOUT_MS);
+
+    Promise.resolve(promise).then(
+      (value) => {
+        clearTimeout(timer);
+        resolve(value);
+      },
+      (error) => {
+        clearTimeout(timer);
+        reject(error);
+      }
+    );
+  });
+}
 
 export default function AuthGuard({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
   const [isLoading, setIsLoading] = useState(true);
+  const [authError, setAuthError] = useState<string | null>(null);
   const [debugInfo, setDebugInfo] = useState<string[]>([]);
   const supabase = createClient();
 
-  const addDebug = (msg: string) => {
-    setDebugInfo(prev => [...prev, `${new Date().toLocaleTimeString()}: ${msg}`]);
-  };
+  const isCheckingRef = useRef(false);
+  const isMountedRef = useRef(true);
+  const initialEventHandledRef = useRef(false);
 
   useEffect(() => {
-    let isMounted = true;
-    let isChecking = false;
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
 
-    const checkAuth = async () => {
-      if (isChecking) {
-        addDebug('이미 체크 중 - 스킵');
+  const addDebug = useCallback((msg: string) => {
+    setDebugInfo((prev) => [...prev, `${new Date().toLocaleTimeString()}: ${msg}`]);
+  }, []);
+
+  const finishCheck = useCallback(() => {
+    isCheckingRef.current = false;
+    if (isMountedRef.current) {
+      setIsLoading(false);
+    }
+  }, []);
+
+  const checkAuth = useCallback(async () => {
+    if (isCheckingRef.current) {
+      addDebug("이미 체크 중 - 스킵");
+      return;
+    }
+
+    isCheckingRef.current = true;
+    if (isMountedRef.current) {
+      setAuthError(null);
+    }
+    addDebug(`시작 - 경로: ${pathname}`);
+
+    try {
+      const isAuthCallback = pathname?.startsWith("/auth/callback");
+      const isLoginPath = pathname === "/login";
+      const isOnboardingPath = pathname === "/onboarding";
+
+      if (isAuthCallback) {
+        addDebug("콜백 페이지 - 로딩 종료");
+        finishCheck();
         return;
       }
-      
-      isChecking = true;
-      addDebug(`시작 - 경로: ${pathname}`);
-      
-      try {
-        // auth/callback만 완전 공개 페이지
-        const isAuthCallback = pathname?.startsWith('/auth/callback');
-        const isLoginPath = pathname === '/login';
-        const isOnboardingPath = pathname === '/onboarding';
 
-        // auth/callback은 바로 로딩 종료
-        if (isAuthCallback) {
-          addDebug('콜백 페이지 - 로딩 종료');
-          if (isMounted) setIsLoading(false);
-          isChecking = false;
-          return;
-        }
+      addDebug("세션 확인 중...");
+      const sessionResponse = await withTimeout(supabase.auth.getSession(), "세션 확인");
+      addDebug("세션 확인 완료");
 
-        // 1. 세션 확인
-        addDebug('세션 확인 중...');
-        const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-        addDebug('세션 확인 완료');
-        
-        if (sessionError) {
-          addDebug(`세션 오류: ${sessionError.message}`);
-          if (isMounted) setIsLoading(false);
-          isChecking = false;
-          return;
-        }
+      const { data: { session }, error: sessionError } = sessionResponse;
 
-        addDebug(session ? `세션 있음 (ID: ${session.user.id.slice(0, 8)})` : '세션 없음');
-        
-        // 2. 비로그인 상태 처리
-        if (!session) {
-          if (!isLoginPath) {
-            addDebug('/login으로 이동');
-            router.push('/login');
-          } else {
-            addDebug('이미 로그인 페이지');
-          }
-          if (isMounted) setIsLoading(false);
-          isChecking = false;
-          return;
-        }
-
-        // 3. 로그인 상태 - 프로필 확인
-        addDebug('프로필 조회 시작');
-        const { data: profile, error: profileError } = await supabase
-          .from('profiles')
-          .select('nickname')
-          .eq('id', session.user.id)
-          .maybeSingle();
-
-        addDebug('프로필 조회 완료');
-        addDebug(`프로필: ${profile ? JSON.stringify(profile) : 'null'}`);
-        
-        if (profileError) {
-          addDebug(`프로필 오류: ${profileError.message}`);
-          if (isMounted) setIsLoading(false);
-          isChecking = false;
-          return;
-        }
-
-        const hasNickname = profile?.nickname && profile.nickname.trim() !== '';
-        addDebug(`닉네임 체크: ${hasNickname} (값: ${profile?.nickname || 'null'})`);
-
-        // 4. 닉네임이 없는 경우 (미완료 유저)
-        if (!hasNickname) {
-          if (!isOnboardingPath) {
-            addDebug('/onboarding으로 이동');
-            router.push('/onboarding');
-          } else {
-            addDebug('이미 온보딩 페이지');
-          }
-          if (isMounted) setIsLoading(false);
-          isChecking = false;
-          return;
-        }
-
-        // 5. 닉네임이 있는 경우 (완료된 유저)
-        if (isLoginPath || isOnboardingPath) {
-          addDebug('메인으로 이동');
-          router.push('/');
-        }
-
-        addDebug('로딩 종료');
-        if (isMounted) setIsLoading(false);
-        isChecking = false;
-        
-      } catch (error) {
-        const errMsg = error instanceof Error ? error.message : String(error);
-        addDebug(`예외: ${errMsg}`);
-        if (isMounted) setIsLoading(false);
-        isChecking = false;
+      if (sessionError) {
+        throw sessionError;
       }
-    };
 
-    // 초기 체크
+      addDebug(session ? `세션 있음 (ID: ${session.user.id.slice(0, 8)})` : "세션 없음");
+
+      if (!session) {
+        if (!isLoginPath) {
+          addDebug("/login으로 이동");
+          router.push("/login");
+        } else {
+          addDebug("이미 로그인 페이지");
+        }
+        finishCheck();
+        return;
+      }
+
+      addDebug("프로필 조회 시작");
+      const profileQuery = supabase
+        .from("profiles")
+        .select("nickname")
+        .eq("id", session.user.id)
+        .maybeSingle();
+      
+      const profileResponse = await withTimeout(
+        profileQuery,
+        "프로필 조회"
+      );
+      addDebug("프로필 조회 완료");
+
+      const { data: profile, error: profileError } = profileResponse;
+
+      if (profileError) {
+        throw profileError;
+      }
+
+      const hasNickname = Boolean(profile?.nickname && profile.nickname.trim() !== "");
+      addDebug(`닉네임 체크: ${hasNickname} (값: ${profile?.nickname || "null"})`);
+
+      if (!hasNickname) {
+        if (!isOnboardingPath) {
+          addDebug("/onboarding으로 이동");
+          router.push("/onboarding");
+        } else {
+          addDebug("이미 온보딩 페이지");
+        }
+        finishCheck();
+        return;
+      }
+
+      if (isLoginPath || isOnboardingPath) {
+        addDebug("메인으로 이동");
+        router.push("/");
+      }
+
+      addDebug("로딩 종료");
+      finishCheck();
+    } catch (error) {
+      const errMsg = error instanceof Error ? error.message : String(error);
+      addDebug(`예외: ${errMsg}`);
+      if (isMountedRef.current) {
+        setAuthError(errMsg.includes("timeout") ? "서버 응답이 지연되고 있습니다. 잠시 후 다시 시도해주세요." : errMsg);
+      }
+      finishCheck();
+    }
+  }, [addDebug, finishCheck, pathname, router, supabase]);
+
+  const handleRetry = useCallback(() => {
+    if (isCheckingRef.current) return;
+    setAuthError(null);
+    setIsLoading(true);
+    checkAuth();
+  }, [checkAuth]);
+
+  useEffect(() => {
+    initialEventHandledRef.current = false;
     checkAuth();
 
-    // 인증 상태 변경 감지 (초기 SIGNED_IN 이벤트는 무시)
-    let initialEventFired = false;
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-      // 첫 SIGNED_IN 이벤트는 무시 (초기 로드 시 발생)
-      if (!initialEventFired && event === 'SIGNED_IN') {
-        initialEventFired = true;
-        addDebug('초기 SIGNED_IN 이벤트 무시');
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
+      if (!initialEventHandledRef.current && event === "SIGNED_IN") {
+        initialEventHandledRef.current = true;
+        addDebug("초기 SIGNED_IN 이벤트 무시");
         return;
       }
-      
+
       addDebug(`인증 이벤트: ${event}`);
-      
-      if (event === 'SIGNED_OUT') {
-        router.push('/login');
-      } else if (event === 'SIGNED_IN') {
-        // 실제 로그인 이벤트
+
+      if (event === "SIGNED_OUT") {
+        if (isMountedRef.current) {
+          setAuthError(null);
+          setIsLoading(false);
+        }
+        router.push("/login");
+        return;
+      }
+
+      if (["SIGNED_IN", "TOKEN_REFRESHED", "USER_UPDATED"].includes(event)) {
         checkAuth();
       }
     });
 
     return () => {
-      isMounted = false;
       subscription.unsubscribe();
     };
-  }, [pathname, router]);
+  }, [addDebug, checkAuth, router, supabase]);
 
-  // 로딩 중 화면 (디버그 정보 포함)
   if (isLoading) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 p-4">
@@ -158,9 +196,36 @@ export default function AuthGuard({ children }: { children: React.ReactNode }) {
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
           <p className="text-slate-600">로딩 중...</p>
         </div>
-        
-        {/* 디버그 정보 */}
+
         <div className="w-full max-w-md bg-white rounded-lg shadow p-4 text-xs">
+          <p className="font-bold mb-2 text-slate-700">디버그 로그:</p>
+          <div className="space-y-1 max-h-64 overflow-y-auto">
+            {debugInfo.map((info, i) => (
+              <p key={i} className="text-slate-600 font-mono">{info}</p>
+            ))}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (authError) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 p-4">
+        <div className="w-full max-w-md bg-white rounded-xl shadow-lg p-6 text-center space-y-4">
+          <div>
+            <p className="text-lg font-semibold text-slate-800 mb-1">연결에 문제가 있습니다</p>
+            <p className="text-sm text-slate-600">{authError}</p>
+          </div>
+          <button
+            onClick={handleRetry}
+            className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-3 rounded-lg transition-colors"
+          >
+            다시 시도
+          </button>
+        </div>
+
+        <div className="w-full max-w-md bg-white rounded-lg shadow p-4 text-xs mt-6">
           <p className="font-bold mb-2 text-slate-700">디버그 로그:</p>
           <div className="space-y-1 max-h-64 overflow-y-auto">
             {debugInfo.map((info, i) => (
