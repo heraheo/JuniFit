@@ -145,8 +145,6 @@ export function useWorkoutSession({
     }
 
     const newCompletedState = !currentSet.completed;
-    const exerciseInputs = inputs[exerciseId] || [];
-    const hasRemainingSets = exerciseInputs.some((set, idx) => idx !== setIndex && !set.completed);
 
     setInputs(prev => ({
       ...prev,
@@ -156,7 +154,7 @@ export function useWorkoutSession({
     }));
 
     // 세트를 완료(체크)하는 경우에만 타이머 시작
-    if (newCompletedState && exercise.rest_seconds && hasRemainingSets) {
+    if (newCompletedState && exercise.rest_seconds) {
       onSetComplete(exercise.rest_seconds);
     }
   }, [program, inputs, onSetComplete]);
