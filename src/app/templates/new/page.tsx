@@ -64,6 +64,9 @@ const formatUnknownError = (error: unknown) => {
   return "알 수 없는 오류";
 };
 
+const stripField = <T extends Record<string, any>, K extends keyof T>(rows: T[], key: K) =>
+  rows.map(({ [key]: _removed, ...rest }) => rest);
+
 const isExerciseComplete = (exercise: ProgramExerciseForm) => {
   if (!exercise.exerciseId || !exercise.recordType) return false;
   if (exercise.targetSets === "" || Number(exercise.targetSets) < 1) return false;
@@ -202,6 +205,13 @@ export default function Page() {
         .from('program_exercises')
         .insert(programExercises));
 
+      // Some deployments don't have intention column yet.
+      if (exercisesError && looksLikeMissingColumn(exercisesError, 'intention')) {
+        ({ error: exercisesError } = await supabase
+          .from('program_exercises')
+          .insert(stripField(programExercises, 'intention') as any));
+      }
+
       // If RLS blocks insert, try adding user_id if the column exists.
       if (exercisesError && isRlsError(exercisesError)) {
         const withUserId = programExercises.map((row) => ({ ...row, user_id: user.id }));
@@ -210,13 +220,21 @@ export default function Page() {
           .insert(withUserId));
       }
 
+      if (exercisesError && looksLikeMissingColumn(exercisesError, 'intention')) {
+        const withUserId = programExercises.map((row) => ({ ...row, user_id: user.id }));
+        ({ error: exercisesError } = await supabase
+          .from('program_exercises')
+          .insert(stripField(withUserId as any, 'intention') as any));
+      }
+
       // If DB is still on the old schema (name/target_reps/target_sets), fall back.
       if (
         exercisesError &&
         (looksLikeMissingColumn(exercisesError, 'exercise_id') ||
           looksLikeMissingColumn(exercisesError, 'target_weight') ||
           looksLikeMissingColumn(exercisesError, 'target_time') ||
-          looksLikeMissingColumn(exercisesError, 'record_type'))
+          looksLikeMissingColumn(exercisesError, 'record_type') ||
+          looksLikeMissingColumn(exercisesError, 'intention'))
       ) {
         const legacyRows = completeExercises.map((ex, index) => ({
           program_id: programId,
@@ -226,6 +244,7 @@ export default function Page() {
           // legacy schema only supports reps; store time(seconds) into target_reps as a best-effort.
           target_reps: ex.recordType === 'time' ? Number(ex.targetTime) : Number(ex.targetReps),
           rest_seconds: Number(ex.restSeconds),
+          // optional in some schemas
           intention: ex.intention?.trim() || null,
           note: null,
           user_id: user.id,
@@ -234,6 +253,12 @@ export default function Page() {
         ({ error: exercisesError } = await supabase
           .from('program_exercises')
           .insert(legacyRows as any));
+
+        if (exercisesError && looksLikeMissingColumn(exercisesError, 'intention')) {
+          ({ error: exercisesError } = await supabase
+            .from('program_exercises')
+            .insert(stripField(legacyRows as any, 'intention') as any));
+        }
       }
 
       if (exercisesError) {

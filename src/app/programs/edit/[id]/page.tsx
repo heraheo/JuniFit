@@ -64,6 +64,9 @@ const formatUnknownError = (error: unknown) => {
   return "알 수 없는 오류";
 };
 
+const stripField = <T extends Record<string, any>, K extends keyof T>(rows: T[], key: K) =>
+  rows.map(({ [key]: _removed, ...rest }) => rest);
+
 const isExerciseComplete = (exercise: ProgramExerciseForm) => {
   if (!exercise.exerciseId || !exercise.recordType) return false;
   if (exercise.targetSets === "" || Number(exercise.targetSets) < 1) return false;
@@ -324,6 +327,12 @@ export default function ProgramEditPage() {
         .from('program_exercises')
         .insert(programExercises));
 
+      if (exercisesError && looksLikeMissingColumn(exercisesError, 'intention')) {
+        ({ error: exercisesError } = await supabase
+          .from('program_exercises')
+          .insert(stripField(programExercises, 'intention') as any));
+      }
+
       if (exercisesError && isRlsError(exercisesError)) {
         const withUserId = programExercises.map((row) => ({ ...row, user_id: user.id }));
         ({ error: exercisesError } = await supabase
@@ -331,12 +340,20 @@ export default function ProgramEditPage() {
           .insert(withUserId));
       }
 
+      if (exercisesError && looksLikeMissingColumn(exercisesError, 'intention')) {
+        const withUserId = programExercises.map((row) => ({ ...row, user_id: user.id }));
+        ({ error: exercisesError } = await supabase
+          .from('program_exercises')
+          .insert(stripField(withUserId as any, 'intention') as any));
+      }
+
       if (
         exercisesError &&
         (looksLikeMissingColumn(exercisesError, 'exercise_id') ||
           looksLikeMissingColumn(exercisesError, 'target_weight') ||
           looksLikeMissingColumn(exercisesError, 'target_time') ||
-          looksLikeMissingColumn(exercisesError, 'record_type'))
+          looksLikeMissingColumn(exercisesError, 'record_type') ||
+          looksLikeMissingColumn(exercisesError, 'intention'))
       ) {
         const legacyRows = completeExercises.map((ex, index) => ({
           program_id: programId,
@@ -353,6 +370,12 @@ export default function ProgramEditPage() {
         ({ error: exercisesError } = await supabase
           .from('program_exercises')
           .insert(legacyRows as any));
+
+        if (exercisesError && looksLikeMissingColumn(exercisesError, 'intention')) {
+          ({ error: exercisesError } = await supabase
+            .from('program_exercises')
+            .insert(stripField(legacyRows as any, 'intention') as any));
+        }
       }
 
       if (exercisesError) throw exercisesError;
