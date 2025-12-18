@@ -20,11 +20,13 @@ interface ExerciseSelectorProps {
 }
 
 const RESULT_LIMIT = 20;
-const FETCH_LIMIT = 500;
+const FETCH_LIMIT = 2000;
 
-function escapeIlike(value: string) {
-  return value.replace(/[\\%_]/g, char => `\\${char}`);
-}
+type ExerciseOption = ExerciseMeta & {
+  aliases?: string[] | null;
+  description?: string | null;
+  effects?: string | null;
+};
 
 function normalizeSearch(value: string) {
   return value
@@ -47,8 +49,9 @@ export default function ExerciseSelector({
   const containerRef = useRef<HTMLDivElement>(null);
   const [query, setQuery] = useState(value?.name ?? '');
   const [debouncedQuery, setDebouncedQuery] = useState(query);
-  const [results, setResults] = useState<ExerciseMeta[]>([]);
-  const [candidates, setCandidates] = useState<Array<ExerciseMeta & { aliases?: string[] | null }>>([]);
+  const [results, setResults] = useState<ExerciseOption[]>([]);
+  const [candidates, setCandidates] = useState<ExerciseOption[]>([]);
+  const [selectedDetail, setSelectedDetail] = useState<ExerciseOption | null>(null);
   const [partFilter, setPartFilter] = useState<ExercisePart | 'all'>('all');
   const [isOpen, setIsOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -57,6 +60,41 @@ export default function ExerciseSelector({
   useEffect(() => {
     setQuery(value?.name ?? '');
   }, [value?.id, value?.name]);
+
+  useEffect(() => {
+    let isActive = true;
+
+    async function loadSelectedDetail() {
+      if (!value?.id) {
+        setSelectedDetail(null);
+        return;
+      }
+
+      // Prefer local candidate cache first.
+      const local = candidates.find(c => c.id === value.id);
+      if (local) {
+        setSelectedDetail(local);
+        return;
+      }
+
+      const { data, error } = await supabase
+        .from('exercises')
+        .select('id,name,target_part,record_type,description,effects')
+        .eq('id', value.id)
+        .single();
+
+      if (!isActive) return;
+      if (error || !data) return;
+
+      setSelectedDetail(data as ExerciseOption);
+    }
+
+    loadSelectedDetail();
+
+    return () => {
+      isActive = false;
+    };
+  }, [value?.id, candidates, supabase]);
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -79,7 +117,7 @@ export default function ExerciseSelector({
       try {
         let builder = supabase
           .from('exercises')
-          .select('id,name,target_part,record_type,aliases')
+          .select('id,name,target_part,record_type,aliases,description,effects')
           .order('name', { ascending: true })
           .limit(FETCH_LIMIT);
 
@@ -97,7 +135,7 @@ export default function ExerciseSelector({
           return;
         }
 
-        const fetched = (data ?? []) as Array<ExerciseMeta & { aliases?: string[] | null }>;
+        const fetched = (data ?? []) as ExerciseOption[];
         setCandidates(fetched);
       } finally {
         if (isActive) {
@@ -151,8 +189,14 @@ export default function ExerciseSelector({
   }, []);
 
   const handleSelect = useCallback(
-    (exercise: ExerciseMeta) => {
-      onSelect(exercise);
+    (exercise: ExerciseOption) => {
+      onSelect({
+        id: exercise.id,
+        name: exercise.name,
+        record_type: exercise.record_type,
+        target_part: exercise.target_part,
+      });
+      setSelectedDetail(exercise);
       setQuery(exercise.name);
       setIsOpen(false);
     },
@@ -163,63 +207,83 @@ export default function ExerciseSelector({
     setQuery('');
     setResults([]);
     setDebouncedQuery('');
+    setSelectedDetail(null);
     onClear?.();
     setIsOpen(true);
   }, [onClear]);
 
   return (
     <div ref={containerRef} className="relative w-full">
-      <div className="mb-3">
-        <label className="block text-sm font-medium text-slate-700 mb-2">부위</label>
-        <select
-          className={cn(
-            'w-full px-4 py-3 border rounded-lg text-base',
-            'focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent',
-            'disabled:bg-gray-100 disabled:cursor-not-allowed',
-            'transition-all',
-            error ? 'border-red-500' : 'border-slate-300'
+      <div className="flex items-end gap-3">
+        <div className="w-36">
+          <label className="block text-sm font-medium text-slate-700 mb-2">부위</label>
+          <select
+            className={cn(
+              'w-full px-4 py-3 border rounded-lg text-base',
+              'focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent',
+              'disabled:bg-gray-100 disabled:cursor-not-allowed',
+              'transition-all',
+              error ? 'border-red-500' : 'border-slate-300'
+            )}
+            value={partFilter}
+            onChange={e => {
+              setPartFilter(e.target.value as ExercisePart | 'all');
+              setIsOpen(true);
+            }}
+            disabled={disabled}
+          >
+            <option value="all">전체</option>
+            {EXERCISE_PARTS.map(part => (
+              <option key={part} value={part}>
+                {PART_LABELS[part]}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <div className="relative flex-1">
+          <Input
+            label={label}
+            helperText={helperText}
+            error={error}
+            placeholder={placeholder}
+            value={query}
+            disabled={disabled}
+            onChange={event => {
+              setQuery(event.target.value);
+              setIsOpen(true);
+            }}
+            onFocus={() => setIsOpen(true)}
+            className="pl-10"
+          />
+
+          <Search className="absolute left-3 top-10 h-5 w-5 text-slate-400" />
+          {value && !disabled && (
+            <button
+              type="button"
+              className="absolute right-3 top-10 text-slate-400 hover:text-slate-600"
+              onClick={handleClear}
+              aria-label="선택 초기화"
+            >
+              <X className="h-5 w-5" />
+            </button>
           )}
-          value={partFilter}
-          onChange={e => {
-            setPartFilter(e.target.value as ExercisePart | 'all');
-            setIsOpen(true);
-          }}
-          disabled={disabled}
-        >
-          <option value="all">전체</option>
-          {EXERCISE_PARTS.map(part => (
-            <option key={part} value={part}>
-              {PART_LABELS[part]}
-            </option>
-          ))}
-        </select>
+        </div>
       </div>
 
-      <Input
-        label={label}
-        helperText={helperText}
-        error={error}
-        placeholder={placeholder}
-        value={query}
-        disabled={disabled}
-        onChange={event => {
-          setQuery(event.target.value);
-          setIsOpen(true);
-        }}
-        onFocus={() => setIsOpen(true)}
-        className="pl-10"
-      />
-
-      <Search className="absolute left-3 top-10 h-5 w-5 text-slate-400" />
-      {value && !disabled && (
-        <button
-          type="button"
-          className="absolute right-3 top-10 text-slate-400 hover:text-slate-600"
-          onClick={handleClear}
-          aria-label="선택 초기화"
-        >
-          <X className="h-5 w-5" />
-        </button>
+      {(selectedDetail?.description || selectedDetail?.effects) && (
+        <div className="mt-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
+          {selectedDetail.description && (
+            <p className="text-xs text-slate-700">
+              <span className="font-medium">설명:</span> {selectedDetail.description}
+            </p>
+          )}
+          {selectedDetail.effects && (
+            <p className={cn('text-xs text-slate-700', selectedDetail.description && 'mt-1')}>
+              <span className="font-medium">효과:</span> {selectedDetail.effects}
+            </p>
+          )}
+        </div>
       )}
 
       {isOpen && !disabled && (
