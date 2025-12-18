@@ -35,6 +35,35 @@ const looksLikeMissingColumn = (error: unknown, column: string) => {
   return typeof message === "string" && message.toLowerCase().includes(column.toLowerCase()) && message.toLowerCase().includes("does not exist");
 };
 
+const isRlsError = (error: unknown) => {
+  if (!error || typeof error !== "object") return false;
+  const message = (error as { message?: unknown }).message;
+  if (typeof message !== "string") return false;
+  return message.toLowerCase().includes("row-level security") || message.toLowerCase().includes("rls");
+};
+
+const formatUnknownError = (error: unknown) => {
+  if (error instanceof Error) return error.message;
+  if (typeof error === "string") return error;
+  if (error && typeof error === "object") {
+    const anyErr = error as any;
+    const message = typeof anyErr.message === "string" ? anyErr.message : undefined;
+    const details = typeof anyErr.details === "string" ? anyErr.details : undefined;
+    const hint = typeof anyErr.hint === "string" ? anyErr.hint : undefined;
+    const code = typeof anyErr.code === "string" ? anyErr.code : undefined;
+
+    const parts = [message, details, hint, code ? `code: ${code}` : undefined].filter(Boolean);
+    if (parts.length) return parts.join("\n");
+
+    try {
+      return JSON.stringify(error);
+    } catch {
+      return "알 수 없는 오류";
+    }
+  }
+  return "알 수 없는 오류";
+};
+
 const isExerciseComplete = (exercise: ProgramExerciseForm) => {
   if (!exercise.exerciseId || !exercise.recordType) return false;
   if (exercise.targetSets === "" || Number(exercise.targetSets) < 1) return false;
@@ -290,9 +319,41 @@ export default function ProgramEditPage() {
           intention: ex.intention?.trim() || null,
         }));
 
-      const { error: exercisesError } = await supabase
+      let exercisesError: any = null;
+      ({ error: exercisesError } = await supabase
         .from('program_exercises')
-        .insert(programExercises);
+        .insert(programExercises));
+
+      if (exercisesError && isRlsError(exercisesError)) {
+        const withUserId = programExercises.map((row) => ({ ...row, user_id: user.id }));
+        ({ error: exercisesError } = await supabase
+          .from('program_exercises')
+          .insert(withUserId));
+      }
+
+      if (
+        exercisesError &&
+        (looksLikeMissingColumn(exercisesError, 'exercise_id') ||
+          looksLikeMissingColumn(exercisesError, 'target_weight') ||
+          looksLikeMissingColumn(exercisesError, 'target_time') ||
+          looksLikeMissingColumn(exercisesError, 'record_type'))
+      ) {
+        const legacyRows = completeExercises.map((ex, index) => ({
+          program_id: programId,
+          name: ex.exerciseName,
+          order: index,
+          target_sets: Number(ex.targetSets),
+          target_reps: ex.recordType === 'time' ? Number(ex.targetTime) : Number(ex.targetReps),
+          rest_seconds: Number(ex.restSeconds),
+          intention: ex.intention?.trim() || null,
+          note: null,
+          user_id: user.id,
+        }));
+
+        ({ error: exercisesError } = await supabase
+          .from('program_exercises')
+          .insert(legacyRows as any));
+      }
 
       if (exercisesError) throw exercisesError;
 
@@ -302,7 +363,7 @@ export default function ProgramEditPage() {
     } catch (error) {
       console.error('Update error:', error);
       setIsSaving(false);
-      alert(`수정 중 오류가 발생했습니다.\n${error instanceof Error ? error.message : '알 수 없는 오류'}`);
+      alert(`수정 중 오류가 발생했습니다.\n${formatUnknownError(error)}`);
     }
   };
 
