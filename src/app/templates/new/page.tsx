@@ -29,6 +29,12 @@ const numberOrNull = (value: string) => {
   return Number.isNaN(parsed) ? null : parsed;
 };
 
+const looksLikeMissingColumn = (error: unknown, column: string) => {
+  if (!error || typeof error !== "object") return false;
+  const message = (error as { message?: unknown }).message;
+  return typeof message === "string" && message.toLowerCase().includes(column.toLowerCase()) && message.toLowerCase().includes("does not exist");
+};
+
 const isExerciseComplete = (exercise: ProgramExerciseForm) => {
   if (!exercise.exerciseId || !exercise.recordType) return false;
   if (exercise.targetSets === "" || Number(exercise.targetSets) < 1) return false;
@@ -89,6 +95,14 @@ export default function Page() {
         return;
       }
 
+      // 최소 1개 이상 완성된 운동이 있어야 저장
+      const completeExercises = formState.exercises.filter(isExerciseComplete);
+      if (completeExercises.length === 0) {
+        setIsSaving(false);
+        alert("완성된 운동을 최소 1개 이상 추가해주세요.");
+        return;
+      }
+
       // 프로그램 제목 중복 체크
       const { data: existingPrograms, error: checkError } = await supabase
         .from('programs')
@@ -104,17 +118,32 @@ export default function Page() {
         return;
       }
 
-      // 1. 프로그램 저장
-      const { data: programData, error: programError } = await supabase
+      // 1. 프로그램 저장 (DB에 rpe 컬럼이 없을 수 있어 fallback)
+      const insertBase = {
+        user_id: user.id,
+        title: formState.title.trim(),
+        description: formState.description.trim(),
+      };
+
+      let programData: any = null;
+      let programError: any = null;
+
+      ({ data: programData, error: programError } = await supabase
         .from('programs')
         .insert({
-          user_id: user.id,
-          title: formState.title.trim(),
-          description: formState.description.trim(),
+          ...insertBase,
           rpe: formState.rpe.trim() !== "" ? Number(formState.rpe) : null,
         })
         .select()
-        .single();
+        .single());
+
+      if (programError && looksLikeMissingColumn(programError, 'rpe')) {
+        ({ data: programData, error: programError } = await supabase
+          .from('programs')
+          .insert(insertBase)
+          .select()
+          .single());
+      }
 
       if (programError) throw programError;
       if (!programData) throw new Error('프로그램 저장에 실패했습니다.');
@@ -122,16 +151,16 @@ export default function Page() {
       const programId = programData.id;
 
       // 2. 운동 목록 저장
-      const programExercises = formState.exercises
-        .filter(isExerciseComplete)
+      const programExercises = completeExercises
         .map((ex, index) => ({
           program_id: programId,
           exercise_id: ex.exerciseId!,
           order: index,
           target_sets: Number(ex.targetSets),
           target_weight: ex.recordType === "weight_reps" ? numberOrNull(ex.targetWeight)! : null,
+          // 일부 DB에서는 target_reps가 NOT NULL일 수 있어 time 타입에서 0을 넣고 target_time을 사용
           target_reps:
-            ex.recordType === "time" ? null : numberOrNull(ex.targetReps)!,
+            ex.recordType === "time" ? 0 : numberOrNull(ex.targetReps)!,
           target_time: ex.recordType === "time" ? numberOrNull(ex.targetTime)! : null,
           rest_seconds: Number(ex.restSeconds),
           intention: ex.intention?.trim() || null,
@@ -224,6 +253,10 @@ export default function Page() {
                         exerciseName: selected.name,
                         recordType: selected.record_type,
                         targetPart: selected.target_part,
+                        // 운동 타입이 바뀔 수 있으니 목표 입력값을 초기화
+                        targetWeight: "",
+                        targetReps: "",
+                        targetTime: "",
                       }));
                     }}
                     onClear={() => {

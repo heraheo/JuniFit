@@ -29,6 +29,12 @@ const numberOrNull = (value: string) => {
   return Number.isNaN(parsed) ? null : parsed;
 };
 
+const looksLikeMissingColumn = (error: unknown, column: string) => {
+  if (!error || typeof error !== "object") return false;
+  const message = (error as { message?: unknown }).message;
+  return typeof message === "string" && message.toLowerCase().includes(column.toLowerCase()) && message.toLowerCase().includes("does not exist");
+};
+
 const isExerciseComplete = (exercise: ProgramExerciseForm) => {
   if (!exercise.exerciseId || !exercise.recordType) return false;
   if (exercise.targetSets === "" || Number(exercise.targetSets) < 1) return false;
@@ -233,8 +239,15 @@ export default function ProgramEditPage() {
         return;
       }
 
+      const completeExercises = exercises.filter(isExerciseComplete);
+      if (completeExercises.length === 0) {
+        setIsSaving(false);
+        alert("완성된 운동을 최소 1개 이상 추가해주세요.");
+        return;
+      }
+
       // 1. 프로그램 정보 업데이트
-      const { error: programError } = await supabase
+      let { error: programError } = await supabase
         .from('programs')
         .update({
           title: title.trim(),
@@ -242,6 +255,16 @@ export default function ProgramEditPage() {
           rpe: rpe.trim() !== "" ? Number(rpe) : null,
         })
         .eq('id', programId);
+
+      if (programError && looksLikeMissingColumn(programError, 'rpe')) {
+        ({ error: programError } = await supabase
+          .from('programs')
+          .update({
+            title: title.trim(),
+            description: description.trim(),
+          })
+          .eq('id', programId));
+      }
 
       if (programError) throw programError;
 
@@ -254,15 +277,14 @@ export default function ProgramEditPage() {
       if (deleteError) throw deleteError;
 
       // 3. 새로운 운동 목록 저장
-      const programExercises = exercises
-        .filter(isExerciseComplete)
+      const programExercises = completeExercises
         .map((ex, index) => ({
           program_id: programId,
           exercise_id: ex.exerciseId,
           order: index,
           target_sets: Number(ex.targetSets),
           target_weight: ex.recordType === "weight_reps" ? numberOrNull(ex.targetWeight) : null,
-          target_reps: ex.recordType === "time" ? null : numberOrNull(ex.targetReps),
+          target_reps: ex.recordType === "time" ? 0 : numberOrNull(ex.targetReps),
           target_time: ex.recordType === "time" ? numberOrNull(ex.targetTime) : null,
           rest_seconds: Number(ex.restSeconds),
           intention: ex.intention?.trim() || null,
@@ -361,6 +383,9 @@ export default function ProgramEditPage() {
                         exerciseName: selected.name,
                         recordType: selected.record_type,
                         targetPart: selected.target_part,
+                        targetWeight: "",
+                        targetReps: "",
+                        targetTime: "",
                       }));
                     }}
                     onClear={() => {

@@ -25,8 +25,24 @@ const FETCH_LIMIT = 2000;
 type ExerciseOption = ExerciseMeta & {
   aliases?: string[] | null;
   description?: string | null;
+  // Some DBs may use effect (singular) vs effects (plural). We normalize to effects for UI.
   effects?: string | null;
+  effect?: string | null;
 };
+
+function looksLikeMissingColumn(error: unknown, column: string) {
+  if (!error || typeof error !== 'object') return false;
+  const msg = (error as { message?: unknown }).message;
+  if (typeof msg !== 'string') return false;
+  return msg.toLowerCase().includes(column.toLowerCase()) && msg.toLowerCase().includes('does not exist');
+}
+
+function normalizeOption(row: ExerciseOption): ExerciseOption {
+  if (row.effects == null && row.effect != null) {
+    return { ...row, effects: row.effect };
+  }
+  return row;
+}
 
 function normalizeSearch(value: string) {
   return value
@@ -77,16 +93,40 @@ export default function ExerciseSelector({
         return;
       }
 
-      const { data, error } = await supabase
+      // Try to load optional fields (description/effect[s]). If the columns don't exist, fall back gracefully.
+      const attempt1 = await supabase
         .from('exercises')
         .select('id,name,target_part,record_type,description,effects')
         .eq('id', value.id)
         .single();
 
+      let data = (attempt1.data as unknown as ExerciseOption | null);
+      let error = attempt1.error;
+
+      if (error && looksLikeMissingColumn(error, 'effects')) {
+        const attempt2 = await supabase
+          .from('exercises')
+          .select('id,name,target_part,record_type,description,effect')
+          .eq('id', value.id)
+          .single();
+        data = (attempt2.data as unknown as ExerciseOption | null);
+        error = attempt2.error;
+      }
+
+      if (error && (looksLikeMissingColumn(error, 'description') || looksLikeMissingColumn(error, 'effect'))) {
+        const attempt3 = await supabase
+          .from('exercises')
+          .select('id,name,target_part,record_type')
+          .eq('id', value.id)
+          .single();
+        data = (attempt3.data as unknown as ExerciseOption | null);
+        error = attempt3.error;
+      }
+
       if (!isActive) return;
       if (error || !data) return;
 
-      setSelectedDetail(data as ExerciseOption);
+      setSelectedDetail(normalizeOption(data));
     }
 
     loadSelectedDetail();
@@ -115,17 +155,30 @@ export default function ExerciseSelector({
       setFetchError(null);
 
       try {
-        let builder = supabase
-          .from('exercises')
-          .select('id,name,target_part,record_type,aliases,description,effects')
-          .order('name', { ascending: true })
-          .limit(FETCH_LIMIT);
+        async function runSelect(select: string) {
+          let builder = supabase
+            .from('exercises')
+            .select(select)
+            .order('name', { ascending: true })
+            .limit(FETCH_LIMIT);
 
-        if (partFilter !== 'all') {
-          builder = builder.eq('target_part', partFilter);
+          if (partFilter !== 'all') {
+            builder = builder.eq('target_part', partFilter);
+          }
+
+          return builder;
         }
 
-        const { data, error: queryError } = await builder;
+        let { data, error: queryError } = await runSelect('id,name,target_part,record_type,aliases,description,effects');
+
+        if (queryError && looksLikeMissingColumn(queryError, 'effects')) {
+          ({ data, error: queryError } = await runSelect('id,name,target_part,record_type,aliases,description,effect'));
+        }
+
+        if (queryError && (looksLikeMissingColumn(queryError, 'description') || looksLikeMissingColumn(queryError, 'effect'))) {
+          ({ data, error: queryError } = await runSelect('id,name,target_part,record_type,aliases'));
+        }
+
         if (!isActive) return;
 
         if (queryError) {
@@ -135,7 +188,7 @@ export default function ExerciseSelector({
           return;
         }
 
-        const fetched = (data ?? []) as ExerciseOption[];
+        const fetched = ((data ?? []) as unknown as ExerciseOption[]).map(normalizeOption);
         setCandidates(fetched);
       } finally {
         if (isActive) {
