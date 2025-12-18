@@ -62,7 +62,7 @@ export async function getProgramById(id: string): Promise<ProgramWithExercises |
 
   const { data: exercises, error: exercisesError } = await supabase
     .from('program_exercises')
-    .select('*')
+    .select('id, program_id, exercise_id, order, target_sets, target_reps, target_weight, target_time, rest_seconds, intention, created_at, exercises ( name, target_part, record_type )')
     .eq('program_id', id)
     .order('order', { ascending: true });
 
@@ -73,7 +73,16 @@ export async function getProgramById(id: string): Promise<ProgramWithExercises |
 
   return {
     ...program,
-    exercises: exercises || [],
+    exercises:
+      (exercises || []).map((ex: any) => {
+        const meta = Array.isArray(ex.exercises) ? ex.exercises[0] : ex.exercises;
+        return {
+          ...ex,
+          name: meta?.name ?? '',
+          target_part: meta?.target_part,
+          record_type: meta?.record_type,
+        };
+      }) || [],
     exerciseCount: exercises?.length || 0,
   };
 }
@@ -206,7 +215,12 @@ export async function getWorkoutLogs(limit?: number, offset: number = 0) {
   // 모든 쿼리를 병렬로 실행 (31번 → 4번)
   const [setsResult, exercisesResult, programsResult] = await Promise.all([
     supabase.from('workout_sets').select('*').in('session_id', sessionIds).order('created_at', { ascending: true }),
-    programIds.length > 0 ? supabase.from('program_exercises').select('program_id, name, order').in('program_id', programIds) : Promise.resolve({ data: [] }),
+    programIds.length > 0
+      ? supabase
+          .from('program_exercises')
+          .select('program_id, order, exercises ( name )')
+          .in('program_id', programIds)
+      : Promise.resolve({ data: [] }),
     programIds.length > 0 ? supabase.from('programs').select('id, title').in('id', programIds) : Promise.resolve({ data: [] }),
   ]);
 
@@ -219,9 +233,12 @@ export async function getWorkoutLogs(limit?: number, offset: number = 0) {
 
   // 프로그램별 운동 순서 맵
   const exerciseOrderByProgram: Record<string, Record<string, number>> = {};
-  exercisesResult.data?.forEach(ex => {
+  exercisesResult.data?.forEach((ex: any) => {
     if (!exerciseOrderByProgram[ex.program_id]) exerciseOrderByProgram[ex.program_id] = {};
-    exerciseOrderByProgram[ex.program_id][ex.name] = ex.order || 999;
+    const meta = Array.isArray(ex.exercises) ? ex.exercises[0] : ex.exercises;
+    const exerciseName = meta?.name;
+    if (!exerciseName) return;
+    exerciseOrderByProgram[ex.program_id][exerciseName] = ex.order || 999;
   });
 
   // 프로그램 제목 맵
@@ -335,13 +352,19 @@ export async function getWorkoutLogById(sessionId: string) {
 
   if (session.program_id) {
     const [exercisesResult, programResult] = await Promise.all([
-      supabase.from('program_exercises').select('name, order').eq('program_id', session.program_id),
+      supabase
+        .from('program_exercises')
+        .select('order, exercises ( name )')
+        .eq('program_id', session.program_id),
       supabase.from('programs').select('title').eq('id', session.program_id).single(),
     ]);
 
     if (exercisesResult.data) {
-      exercisesResult.data.forEach(ex => {
-        exerciseOrderMap[ex.name] = ex.order || 999;
+      exercisesResult.data.forEach((ex: any) => {
+        const meta = Array.isArray(ex.exercises) ? ex.exercises[0] : ex.exercises;
+        const exerciseName = meta?.name;
+        if (!exerciseName) return;
+        exerciseOrderMap[exerciseName] = ex.order || 999;
       });
     }
 

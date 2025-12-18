@@ -5,11 +5,54 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Trash, ArrowLeft } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
-import { useProgramForm } from "@/hooks/useProgramForm";
+import { useProgramForm, type ProgramExerciseForm } from "@/hooks/useProgramForm";
 import Button from "@/components/ui/Button";
 import Input from "@/components/ui/Input";
 import { Modal } from "@/components/ui/Modal";
 import { Card } from "@/components/ui/Card";
+import ExerciseSelector from "@/components/ExerciseSelector";
+import type { ExerciseMeta } from "@/constants/exercise";
+
+const toExerciseMeta = (exercise: ProgramExerciseForm): ExerciseMeta | null => {
+  if (!exercise.exerciseId || !exercise.recordType || !exercise.targetPart) return null;
+  return {
+    id: exercise.exerciseId,
+    name: exercise.exerciseName,
+    record_type: exercise.recordType,
+    target_part: exercise.targetPart,
+  };
+};
+
+const numberOrNull = (value: string) => {
+  if (value.trim() === "") return null;
+  const parsed = Number(value);
+  return Number.isNaN(parsed) ? null : parsed;
+};
+
+const isExerciseComplete = (exercise: ProgramExerciseForm) => {
+  if (!exercise.exerciseId || !exercise.recordType) return false;
+  if (exercise.targetSets === "" || Number(exercise.targetSets) < 1) return false;
+  if (exercise.restSeconds === "" || Number(exercise.restSeconds) < 0) return false;
+
+  if (exercise.recordType === "weight_reps") {
+    return (
+      exercise.targetWeight !== "" &&
+      Number(exercise.targetWeight) > 0 &&
+      exercise.targetReps !== "" &&
+      Number(exercise.targetReps) > 0
+    );
+  }
+
+  if (exercise.recordType === "reps_only") {
+    return exercise.targetReps !== "" && Number(exercise.targetReps) > 0;
+  }
+
+  if (exercise.recordType === "time") {
+    return exercise.targetTime !== "" && Number(exercise.targetTime) > 0;
+  }
+
+  return false;
+};
 
 export default function Page() {
   const router = useRouter();
@@ -80,25 +123,18 @@ export default function Page() {
 
       // 2. 운동 목록 저장
       const programExercises = formState.exercises
-        .filter((ex) => {
-          return (
-            ex.name.trim() &&
-            ex.target.sets !== "" &&
-            Number(ex.target.sets) >= 1 &&
-            ex.target.reps.min !== "" &&
-            ex.target.reps.max !== "" &&
-            ex.restSeconds !== ""
-          );
-        })
+        .filter(isExerciseComplete)
         .map((ex, index) => ({
           program_id: programId,
-          user_id: user.id,
-          name: ex.name.trim(),
-          target_sets: Number(ex.target.sets),
-          target_reps: Number(ex.target.reps.min),
+          exercise_id: ex.exerciseId!,
+          order: index,
+          target_sets: Number(ex.targetSets),
+          target_weight: ex.recordType === "weight_reps" ? numberOrNull(ex.targetWeight)! : null,
+          target_reps:
+            ex.recordType === "time" ? null : numberOrNull(ex.targetReps)!,
+          target_time: ex.recordType === "time" ? numberOrNull(ex.targetTime)! : null,
           rest_seconds: Number(ex.restSeconds),
           intention: ex.intention?.trim() || null,
-          order: index,
         }));
 
       const { error: exercisesError } = await supabase
@@ -174,14 +210,31 @@ export default function Page() {
 
         {/* Exercises list */}
         <section className="space-y-4 mb-6">
-          {formState.exercises.map((ex, i) => (
+          {formState.exercises.map((ex) => (
             <Card key={ex.id} padding="sm">
               <div className="mb-3 flex items-center gap-3">
                 <div className="flex-1">
-                  <Input
-                    value={ex.name}
-                    onChange={(e) => actions.updateExercise(ex.id, (prev) => ({ ...prev, name: e.target.value }))}
-                    placeholder="운동명"
+                  <ExerciseSelector
+                    label="운동 선택"
+                    value={toExerciseMeta(ex)}
+                    onSelect={(selected) => {
+                      actions.updateExercise(ex.id, (prev) => ({
+                        ...prev,
+                        exerciseId: selected.id,
+                        exerciseName: selected.name,
+                        recordType: selected.record_type,
+                        targetPart: selected.target_part,
+                      }));
+                    }}
+                    onClear={() => {
+                      actions.updateExercise(ex.id, (prev) => ({
+                        ...prev,
+                        exerciseId: "",
+                        exerciseName: "",
+                        recordType: "",
+                        targetPart: "",
+                      }));
+                    }}
                   />
                 </div>
                 {formState.exercises.length > 1 && (
@@ -199,13 +252,13 @@ export default function Page() {
                   label="세트 수"
                   type="text"
                   inputMode="numeric"
-                  value={ex.target.sets}
+                  value={ex.targetSets}
                   onChange={(e) => {
-                    const val = actions.handleNumericInput(e.target.value, 'sets', ex.id);
-                    actions.updateExercise(ex.id, (prev) => ({ ...prev, target: { ...prev.target, sets: val } }));
+                    const val = actions.handleNumericInput(e.target.value, 'targetSets', ex.id);
+                    actions.updateExercise(ex.id, (prev) => ({ ...prev, targetSets: val }));
                   }}
                   placeholder="세트"
-                  error={validation.inputErrors[`${ex.id}-sets`]}
+                  error={validation.inputErrors[`${ex.id}-targetSets`]}
                   className="text-sm"
                 />
                 <Input
@@ -214,49 +267,81 @@ export default function Page() {
                   inputMode="numeric"
                   value={ex.restSeconds}
                   onChange={(e) => {
-                    const val = actions.handleNumericInput(e.target.value, 'rest', ex.id);
+                    const val = actions.handleNumericInput(e.target.value, 'restSeconds', ex.id);
                     actions.updateExercise(ex.id, (prev) => ({ ...prev, restSeconds: val }));
                   }}
                   placeholder="초"
-                  error={validation.inputErrors[`${ex.id}-rest`]}
+                  error={validation.inputErrors[`${ex.id}-restSeconds`]}
                   className="text-sm"
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-3 mb-3">
-                <Input
-                  label="최소 횟수"
-                  type="text"
-                  inputMode="numeric"
-                  value={ex.target.reps.min}
-                  onChange={(e) => {
-                    const val = actions.handleNumericInput(e.target.value, 'reps-min', ex.id);
-                    actions.updateExercise(ex.id, (prev) => ({
-                      ...prev,
-                      target: { ...prev.target, reps: { ...prev.target.reps, min: val } }
-                    }));
-                  }}
-                  placeholder="최소"
-                  error={validation.inputErrors[`${ex.id}-reps-min`]}
-                  className="text-sm"
-                />
-                <Input
-                  label="최대 횟수"
-                  type="text"
-                  inputMode="numeric"
-                  value={ex.target.reps.max}
-                  onChange={(e) => {
-                    const val = actions.handleNumericInput(e.target.value, 'reps-max', ex.id);
-                    actions.updateExercise(ex.id, (prev) => ({
-                      ...prev,
-                      target: { ...prev.target, reps: { ...prev.target.reps, max: val } }
-                    }));
-                  }}
-                  placeholder="최대"
-                  error={validation.inputErrors[`${ex.id}-reps-max`]}
-                  className="text-sm"
-                />
-              </div>
+              {ex.recordType === "weight_reps" && (
+                <div className="grid grid-cols-2 gap-3 mb-3">
+                  <Input
+                    label="목표 무게"
+                    type="text"
+                    inputMode="numeric"
+                    value={ex.targetWeight}
+                    onChange={(e) => {
+                      const val = actions.handleNumericInput(e.target.value, 'targetWeight', ex.id);
+                      actions.updateExercise(ex.id, (prev) => ({ ...prev, targetWeight: val }));
+                    }}
+                    placeholder="kg"
+                    error={validation.inputErrors[`${ex.id}-targetWeight`]}
+                    className="text-sm"
+                  />
+                  <Input
+                    label="목표 횟수"
+                    type="text"
+                    inputMode="numeric"
+                    value={ex.targetReps}
+                    onChange={(e) => {
+                      const val = actions.handleNumericInput(e.target.value, 'targetReps', ex.id);
+                      actions.updateExercise(ex.id, (prev) => ({ ...prev, targetReps: val }));
+                    }}
+                    placeholder="회"
+                    error={validation.inputErrors[`${ex.id}-targetReps`]}
+                    className="text-sm"
+                  />
+                </div>
+              )}
+
+              {ex.recordType === "reps_only" && (
+                <div className="mb-3">
+                  <Input
+                    label="목표 횟수"
+                    type="text"
+                    inputMode="numeric"
+                    value={ex.targetReps}
+                    onChange={(e) => {
+                      const val = actions.handleNumericInput(e.target.value, 'targetReps', ex.id);
+                      actions.updateExercise(ex.id, (prev) => ({ ...prev, targetReps: val }));
+                    }}
+                    placeholder="회"
+                    error={validation.inputErrors[`${ex.id}-targetReps`]}
+                    className="text-sm"
+                  />
+                </div>
+              )}
+
+              {ex.recordType === "time" && (
+                <div className="mb-3">
+                  <Input
+                    label="목표 시간(초)"
+                    type="text"
+                    inputMode="numeric"
+                    value={ex.targetTime}
+                    onChange={(e) => {
+                      const val = actions.handleNumericInput(e.target.value, 'targetTime', ex.id);
+                      actions.updateExercise(ex.id, (prev) => ({ ...prev, targetTime: val }));
+                    }}
+                    placeholder="초"
+                    error={validation.inputErrors[`${ex.id}-targetTime`]}
+                    className="text-sm"
+                  />
+                </div>
+              )}
 
               <Input
                 label="의도 (선택)"

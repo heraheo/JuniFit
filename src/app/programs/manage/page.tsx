@@ -36,7 +36,7 @@ export default function ProgramsManagePage() {
         .order('created_at', { ascending: false }),
       supabase
         .from('program_exercises')
-        .select('*')
+        .select('id, program_id, exercise_id, order, target_sets, target_reps, target_weight, target_time, rest_seconds, intention, created_at, exercises ( name, target_part, record_type )')
         .order('order', { ascending: true })
     ]);
 
@@ -54,7 +54,18 @@ export default function ProgramsManagePage() {
       // 각 프로그램에 해당하는 운동 목록 매핑
       const programsWithExercises = (programsData || []).map(program => ({
         ...program,
-        exercises: allExercises?.filter(ex => ex.program_id === program.id) || []
+        exercises:
+          allExercises
+            ?.filter((ex: any) => ex.program_id === program.id)
+            .map((ex: any) => {
+              const meta = Array.isArray(ex.exercises) ? ex.exercises[0] : ex.exercises;
+              return {
+                ...ex,
+                name: meta?.name ?? '',
+                target_part: meta?.target_part,
+                record_type: meta?.record_type,
+              };
+            }) || [],
       }));
       setPrograms(programsWithExercises);
     }

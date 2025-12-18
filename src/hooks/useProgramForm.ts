@@ -1,11 +1,15 @@
 import { useState, useCallback } from "react";
-import { validateNumericInput, validateProgramForm, type ExerciseInput } from "@/lib/validation";
+import {
+  validateNumericInput,
+  validateProgramForm,
+  type ProgramExerciseForm,
+} from "@/lib/validation";
 
 interface ProgramFormState {
   title: string;
   description: string;
   rpe: string;
-  exercises: ExerciseInput[];
+  exercises: ProgramExerciseForm[];
 }
 
 interface ProgramFormValidation {
@@ -21,8 +25,10 @@ interface UseProgramFormOptions {
   initialTitle?: string;
   initialDescription?: string;
   initialRpe?: string;
-  initialExercises?: ExerciseInput[];
+  initialExercises?: ProgramExerciseForm[];
 }
+
+export type { ProgramExerciseForm };
 
 export function useProgramForm(options: UseProgramFormOptions = {}) {
   const [formState, setFormState] = useState<ProgramFormState>({
@@ -32,9 +38,15 @@ export function useProgramForm(options: UseProgramFormOptions = {}) {
     exercises: options.initialExercises || [
       {
         id: String(Date.now()),
-        name: "",
-        target: { sets: "", reps: { min: "", max: "" } },
+        exerciseId: "",
+        exerciseName: "",
+        recordType: "",
+        targetPart: "",
+        targetSets: "",
         restSeconds: "",
+        targetWeight: "",
+        targetReps: "",
+        targetTime: "",
         intention: "",
       },
     ],
@@ -64,9 +76,15 @@ export function useProgramForm(options: UseProgramFormOptions = {}) {
         ...prev.exercises,
         {
           id: String(Date.now() + Math.random()),
-          name: "",
-          target: { sets: "", reps: { min: "", max: "" } },
+          exerciseId: "",
+          exerciseName: "",
+          recordType: "",
+          targetPart: "",
+          targetSets: "",
           restSeconds: "",
+          targetWeight: "",
+          targetReps: "",
+          targetTime: "",
           intention: "",
         },
       ],
@@ -74,7 +92,7 @@ export function useProgramForm(options: UseProgramFormOptions = {}) {
   }, []);
 
   const updateExercise = useCallback(
-    (id: string, updater: (ex: ExerciseInput) => ExerciseInput) => {
+    (id: string, updater: (ex: ProgramExerciseForm) => ProgramExerciseForm) => {
       setFormState((prev) => ({
         ...prev,
         exercises: prev.exercises.map((ex) => (ex.id === id ? updater(ex) : ex)),

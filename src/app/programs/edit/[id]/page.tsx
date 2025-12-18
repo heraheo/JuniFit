@@ -9,8 +9,50 @@ import Input from "@/components/ui/Input";
 import { Modal } from "@/components/ui/Modal";
 import { Card } from "@/components/ui/Card";
 import { createClient } from "@/lib/supabase/client";
-import type { Program, ProgramExercise } from "@/types/database";
-import { validateNumericInput, validateProgramForm, type ExerciseInput } from "@/lib/validation";
+import ExerciseSelector from "@/components/ExerciseSelector";
+import type { ExerciseMeta } from "@/constants/exercise";
+import { validateNumericInput, validateProgramForm, type ProgramExerciseForm } from "@/lib/validation";
+
+const toExerciseMeta = (exercise: ProgramExerciseForm): ExerciseMeta | null => {
+  if (!exercise.exerciseId || !exercise.recordType || !exercise.targetPart) return null;
+  return {
+    id: exercise.exerciseId,
+    name: exercise.exerciseName,
+    record_type: exercise.recordType,
+    target_part: exercise.targetPart,
+  };
+};
+
+const numberOrNull = (value: string) => {
+  if (value.trim() === "") return null;
+  const parsed = Number(value);
+  return Number.isNaN(parsed) ? null : parsed;
+};
+
+const isExerciseComplete = (exercise: ProgramExerciseForm) => {
+  if (!exercise.exerciseId || !exercise.recordType) return false;
+  if (exercise.targetSets === "" || Number(exercise.targetSets) < 1) return false;
+  if (exercise.restSeconds === "" || Number(exercise.restSeconds) < 0) return false;
+
+  if (exercise.recordType === "weight_reps") {
+    return (
+      exercise.targetWeight !== "" &&
+      Number(exercise.targetWeight) > 0 &&
+      exercise.targetReps !== "" &&
+      Number(exercise.targetReps) > 0
+    );
+  }
+
+  if (exercise.recordType === "reps_only") {
+    return exercise.targetReps !== "" && Number(exercise.targetReps) > 0;
+  }
+
+  if (exercise.recordType === "time") {
+    return exercise.targetTime !== "" && Number(exercise.targetTime) > 0;
+  }
+
+  return false;
+};
 
 export default function ProgramEditPage() {
   const router = useRouter();
@@ -21,7 +63,7 @@ export default function ProgramEditPage() {
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [rpe, setRpe] = useState("");
-  const [exercises, setExercises] = useState<ExerciseInput[]>([]);
+  const [exercises, setExercises] = useState<ProgramExerciseForm[]>([]);
   const [errors, setErrors] = useState<{
     title?: string;
     description?: string;
@@ -45,7 +87,7 @@ export default function ProgramEditPage() {
           .single(),
         supabase
           .from('program_exercises')
-          .select('*')
+          .select('id, program_id, exercise_id, order, target_sets, target_reps, target_weight, target_time, rest_seconds, intention, exercises ( id, name, target_part, record_type )')
           .eq('program_id', programId)
           .order('order', { ascending: true })
       ]);
@@ -62,19 +104,37 @@ export default function ProgramEditPage() {
       setRpe(program.rpe ? String(program.rpe) : '');
 
       // DB 데이터를 UI 형식으로 변환
-      const convertedExercises: ExerciseInput[] = (programExercises || []).map((ex) => ({
-        id: ex.id,
-        name: ex.name,
-        target: {
-          sets: ex.target_sets,
-          reps: { min: ex.target_reps, max: ex.target_reps }
-        },
-        restSeconds: ex.rest_seconds,
-        intention: ex.intention || '',
-      }));
+      const convertedExercises: ProgramExerciseForm[] = (programExercises || []).map((ex: any) => {
+        const meta = Array.isArray(ex.exercises) ? ex.exercises[0] : ex.exercises;
+        return {
+          id: ex.id,
+          exerciseId: ex.exercise_id || '',
+          exerciseName: meta?.name || '',
+          recordType: meta?.record_type || '',
+          targetPart: meta?.target_part || '',
+          targetSets: ex.target_sets != null ? String(ex.target_sets) : '',
+          restSeconds: ex.rest_seconds != null ? String(ex.rest_seconds) : '',
+          targetWeight: ex.target_weight != null ? String(ex.target_weight) : '',
+          targetReps: ex.target_reps != null ? String(ex.target_reps) : '',
+          targetTime: ex.target_time != null ? String(ex.target_time) : '',
+          intention: ex.intention || '',
+        };
+      });
 
       setExercises(convertedExercises.length > 0 ? convertedExercises : [
-        { id: String(Date.now()), name: "", target: { sets: "", reps: { min: "", max: "" } }, restSeconds: "", intention: "" }
+        {
+          id: String(Date.now()),
+          exerciseId: "",
+          exerciseName: "",
+          recordType: "",
+          targetPart: "",
+          targetSets: "",
+          restSeconds: "",
+          targetWeight: "",
+          targetReps: "",
+          targetTime: "",
+          intention: "",
+        }
       ]);
 
     } catch (error) {
@@ -93,11 +153,23 @@ export default function ProgramEditPage() {
   const addExercise = () => {
     setExercises((prev) => [
       ...prev,
-      { id: String(Date.now() + Math.random()), name: "", target: { sets: "", reps: { min: "", max: "" } }, restSeconds: "", intention: "" },
+      {
+        id: String(Date.now() + Math.random()),
+        exerciseId: "",
+        exerciseName: "",
+        recordType: "",
+        targetPart: "",
+        targetSets: "",
+        restSeconds: "",
+        targetWeight: "",
+        targetReps: "",
+        targetTime: "",
+        intention: "",
+      },
     ]);
   };
 
-  const updateExercise = (id: string, updater: (ex: ExerciseInput) => ExerciseInput) => {
+  const updateExercise = (id: string, updater: (ex: ProgramExerciseForm) => ProgramExerciseForm) => {
     setExercises((prev) => prev.map((ex) => (ex.id === id ? updater(ex) : ex)));
   };
 
@@ -183,25 +255,17 @@ export default function ProgramEditPage() {
 
       // 3. 새로운 운동 목록 저장
       const programExercises = exercises
-        .filter((ex) => {
-          return (
-            ex.name.trim() &&
-            ex.target.sets !== "" &&
-            Number(ex.target.sets) >= 1 &&
-            ex.target.reps.min !== "" &&
-            ex.target.reps.max !== "" &&
-            ex.restSeconds !== ""
-          );
-        })
+        .filter(isExerciseComplete)
         .map((ex, index) => ({
           program_id: programId,
-          user_id: user.id,
-          name: ex.name.trim(),
-          target_sets: Number(ex.target.sets),
-          target_reps: Number(ex.target.reps.min),
+          exercise_id: ex.exerciseId,
+          order: index,
+          target_sets: Number(ex.targetSets),
+          target_weight: ex.recordType === "weight_reps" ? numberOrNull(ex.targetWeight) : null,
+          target_reps: ex.recordType === "time" ? null : numberOrNull(ex.targetReps),
+          target_time: ex.recordType === "time" ? numberOrNull(ex.targetTime) : null,
           rest_seconds: Number(ex.restSeconds),
           intention: ex.intention?.trim() || null,
-          order: index,
         }));
 
       const { error: exercisesError } = await supabase
@@ -287,13 +351,27 @@ export default function ProgramEditPage() {
             <Card key={ex.id} padding="sm">
               <div className="mb-3 flex items-center gap-3">
                 <div className="flex-1">
-                  <Input
-                    value={ex.name}
-                    onChange={(e) => {
-                      const newEx = { ...ex, name: e.target.value };
-                      updateExercise(ex.id, () => newEx);
+                  <ExerciseSelector
+                    label="운동 선택"
+                    value={toExerciseMeta(ex)}
+                    onSelect={(selected) => {
+                      updateExercise(ex.id, (prev) => ({
+                        ...prev,
+                        exerciseId: selected.id,
+                        exerciseName: selected.name,
+                        recordType: selected.record_type,
+                        targetPart: selected.target_part,
+                      }));
                     }}
-                    placeholder="운동명"
+                    onClear={() => {
+                      updateExercise(ex.id, (prev) => ({
+                        ...prev,
+                        exerciseId: "",
+                        exerciseName: "",
+                        recordType: "",
+                        targetPart: "",
+                      }));
+                    }}
                   />
                 </div>
                 {exercises.length > 1 && (
@@ -311,13 +389,13 @@ export default function ProgramEditPage() {
                   label="세트 수"
                   type="text"
                   inputMode="numeric"
-                  value={ex.target.sets}
+                  value={ex.targetSets}
                   onChange={(e) => {
-                    const val = handleNumericInput(e.target.value, 'sets', ex.id);
-                    updateExercise(ex.id, (prev) => ({ ...prev, target: { ...prev.target, sets: val } }));
+                    const val = handleNumericInput(e.target.value, 'targetSets', ex.id);
+                    updateExercise(ex.id, (prev) => ({ ...prev, targetSets: val }));
                   }}
                   placeholder="세트"
-                  error={inputErrors[`${ex.id}-sets`]}
+                  error={inputErrors[`${ex.id}-targetSets`]}
                   className="text-sm"
                 />
                 <Input
@@ -326,49 +404,81 @@ export default function ProgramEditPage() {
                   inputMode="numeric"
                   value={ex.restSeconds}
                   onChange={(e) => {
-                    const val = handleNumericInput(e.target.value, 'rest', ex.id);
+                    const val = handleNumericInput(e.target.value, 'restSeconds', ex.id);
                     updateExercise(ex.id, (prev) => ({ ...prev, restSeconds: val }));
                   }}
                   placeholder="초"
-                  error={inputErrors[`${ex.id}-rest`]}
+                  error={inputErrors[`${ex.id}-restSeconds`]}
                   className="text-sm"
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-3 mb-3">
-                <Input
-                  label="최소 횟수"
-                  type="text"
-                  inputMode="numeric"
-                  value={ex.target.reps.min}
-                  onChange={(e) => {
-                    const val = handleNumericInput(e.target.value, 'reps-min', ex.id);
-                    updateExercise(ex.id, (prev) => ({
-                      ...prev,
-                      target: { ...prev.target, reps: { ...prev.target.reps, min: val } }
-                    }));
-                  }}
-                  placeholder="최소"
-                  error={inputErrors[`${ex.id}-reps-min`]}
-                  className="text-sm"
-                />
-                <Input
-                  label="최대 횟수"
-                  type="text"
-                  inputMode="numeric"
-                  value={ex.target.reps.max}
-                  onChange={(e) => {
-                    const val = handleNumericInput(e.target.value, 'reps-max', ex.id);
-                    updateExercise(ex.id, (prev) => ({
-                      ...prev,
-                      target: { ...prev.target, reps: { ...prev.target.reps, max: val } }
-                    }));
-                  }}
-                  placeholder="최대"
-                  error={inputErrors[`${ex.id}-reps-max`]}
-                  className="text-sm"
-                />
-              </div>
+              {ex.recordType === "weight_reps" && (
+                <div className="grid grid-cols-2 gap-3 mb-3">
+                  <Input
+                    label="목표 무게"
+                    type="text"
+                    inputMode="numeric"
+                    value={ex.targetWeight}
+                    onChange={(e) => {
+                      const val = handleNumericInput(e.target.value, 'targetWeight', ex.id);
+                      updateExercise(ex.id, (prev) => ({ ...prev, targetWeight: val }));
+                    }}
+                    placeholder="kg"
+                    error={inputErrors[`${ex.id}-targetWeight`]}
+                    className="text-sm"
+                  />
+                  <Input
+                    label="목표 횟수"
+                    type="text"
+                    inputMode="numeric"
+                    value={ex.targetReps}
+                    onChange={(e) => {
+                      const val = handleNumericInput(e.target.value, 'targetReps', ex.id);
+                      updateExercise(ex.id, (prev) => ({ ...prev, targetReps: val }));
+                    }}
+                    placeholder="회"
+                    error={inputErrors[`${ex.id}-targetReps`]}
+                    className="text-sm"
+                  />
+                </div>
+              )}
+
+              {ex.recordType === "reps_only" && (
+                <div className="mb-3">
+                  <Input
+                    label="목표 횟수"
+                    type="text"
+                    inputMode="numeric"
+                    value={ex.targetReps}
+                    onChange={(e) => {
+                      const val = handleNumericInput(e.target.value, 'targetReps', ex.id);
+                      updateExercise(ex.id, (prev) => ({ ...prev, targetReps: val }));
+                    }}
+                    placeholder="회"
+                    error={inputErrors[`${ex.id}-targetReps`]}
+                    className="text-sm"
+                  />
+                </div>
+              )}
+
+              {ex.recordType === "time" && (
+                <div className="mb-3">
+                  <Input
+                    label="목표 시간(초)"
+                    type="text"
+                    inputMode="numeric"
+                    value={ex.targetTime}
+                    onChange={(e) => {
+                      const val = handleNumericInput(e.target.value, 'targetTime', ex.id);
+                      updateExercise(ex.id, (prev) => ({ ...prev, targetTime: val }));
+                    }}
+                    placeholder="초"
+                    error={inputErrors[`${ex.id}-targetTime`]}
+                    className="text-sm"
+                  />
+                </div>
+              )}
 
               <Input
                 label="의도 (선택)"

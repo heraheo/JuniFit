@@ -8,17 +8,25 @@ export type Program = {
 };
 
 // 2. 프로그램 구성 운동 (Program Exercises)
+import type { ExercisePart, ExerciseRecordType } from '@/constants/exercise';
+
 export type ProgramExercise = {
   id: string;
   program_id: string;
-  name: string;
+  exercise_id: string;
   target_sets: number;
-  target_reps: number;
+  target_reps: number | null;
+  target_weight: number | null;
+  target_time: number | null;
   rest_seconds?: number;
-  intention?: string;
-  note?: string;
+  intention?: string | null;
   order: number;
   created_at: string;
+
+  // Joined exercise metadata (resolved for UI)
+  name: string;
+  target_part?: ExercisePart;
+  record_type?: ExerciseRecordType;
 };
 
 // 3. 운동 세션 (Workout Sessions)
@@ -51,7 +59,9 @@ export type WorkoutLogDetail = WorkoutSession & {
     id: string;
     name: string;
     target_sets: number;
-    target_reps: number;
+    target_reps: number | null;
+    target_weight?: number | null;
+    target_time?: number | null;
     order: number;
     rest_seconds?: number | null;
     intention?: string | null;

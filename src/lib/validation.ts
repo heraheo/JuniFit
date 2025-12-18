@@ -61,16 +61,24 @@ export function validateWorkoutInput(
 /**
  * 프로그램 운동 입력 검증
  */
-export type ExerciseInput = {
+import type { ExercisePart, ExerciseRecordType } from '@/constants/exercise';
+
+export type ProgramExerciseForm = {
   id: string;
-  name: string;
-  target: {
-    sets: number | string;
-    reps: { min: number | string; max: number | string };
-  };
-  restSeconds: number | string;
+  exerciseId: string;
+  exerciseName: string;
+  recordType: ExerciseRecordType | '';
+  targetPart: ExercisePart | '';
+  targetSets: string;
+  restSeconds: string;
+  targetWeight: string;
+  targetReps: string;
+  targetTime: string;
   intention: string;
 };
+
+// Backward-compat alias (older code used ExerciseInput)
+export type ExerciseInput = ProgramExerciseForm;
 
 /**
  * 운동 입력값의 누락된 필드 확인
@@ -83,13 +91,20 @@ export function validateExerciseInput(exercise: ExerciseInput): {
 } {
   const missing: string[] = [];
 
-  if (!exercise.name.trim()) missing.push("운동명");
-  if (exercise.target.sets === "" || Number(exercise.target.sets) < 1)
-    missing.push("세트 수");
-  if (exercise.target.reps.min === "" || exercise.target.reps.max === "")
-    missing.push("횟수(최소/최대)");
-  if (exercise.restSeconds === "" || Number(exercise.restSeconds) < 0)
-    missing.push("휴식 시간(초)");
+  if (!exercise.exerciseId) missing.push('운동 선택');
+  if (exercise.targetSets === '' || Number(exercise.targetSets) < 1) missing.push('세트 수');
+  if (exercise.restSeconds === '' || Number(exercise.restSeconds) < 0) missing.push('휴식 시간(초)');
+
+  if (!exercise.recordType) {
+    missing.push('기록 타입');
+  } else if (exercise.recordType === 'weight_reps') {
+    if (exercise.targetWeight === '' || Number(exercise.targetWeight) <= 0) missing.push('목표 무게');
+    if (exercise.targetReps === '' || Number(exercise.targetReps) <= 0) missing.push('목표 횟수');
+  } else if (exercise.recordType === 'reps_only') {
+    if (exercise.targetReps === '' || Number(exercise.targetReps) <= 0) missing.push('목표 횟수');
+  } else if (exercise.recordType === 'time') {
+    if (exercise.targetTime === '' || Number(exercise.targetTime) <= 0) missing.push('목표 시간(초)');
+  }
 
   return {
     isValid: missing.length === 0,
