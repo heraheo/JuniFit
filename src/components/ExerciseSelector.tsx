@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Search, X } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import Input from '@/components/ui/Input';
-import { PART_LABELS, type ExerciseMeta } from '@/constants/exercise';
+import { EXERCISE_PARTS, PART_LABELS, type ExerciseMeta, type ExercisePart } from '@/constants/exercise';
 import { cn } from '@/lib/utils';
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
 
@@ -20,9 +20,17 @@ interface ExerciseSelectorProps {
 }
 
 const RESULT_LIMIT = 20;
+const FETCH_LIMIT = 500;
 
 function escapeIlike(value: string) {
   return value.replace(/[\\%_]/g, char => `\\${char}`);
+}
+
+function normalizeSearch(value: string) {
+  return value
+    .toLowerCase()
+    .replace(/\s+/g, '')
+    .replace(/[()\[\]{}.,/\\-]/g, '');
 }
 
 export default function ExerciseSelector({
@@ -40,6 +48,8 @@ export default function ExerciseSelector({
   const [query, setQuery] = useState(value?.name ?? '');
   const [debouncedQuery, setDebouncedQuery] = useState(query);
   const [results, setResults] = useState<ExerciseMeta[]>([]);
+  const [candidates, setCandidates] = useState<Array<ExerciseMeta & { aliases?: string[] | null }>>([]);
+  const [partFilter, setPartFilter] = useState<ExercisePart | 'all'>('all');
   const [isOpen, setIsOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [fetchError, setFetchError] = useState<string | null>(null);
@@ -56,6 +66,8 @@ export default function ExerciseSelector({
     return () => clearTimeout(timer);
   }, [query]);
 
+  // Fetch candidates by target_part first (and enough rows), then do client-side search.
+  // This avoids missing results due to low limits and because partial matching against aliases(text[]) isn't reliable via ilike.
   useEffect(() => {
     let isActive = true;
 
@@ -67,14 +79,12 @@ export default function ExerciseSelector({
       try {
         let builder = supabase
           .from('exercises')
-          .select('id,name,target_part,record_type', { count: 'exact' })
+          .select('id,name,target_part,record_type,aliases')
           .order('name', { ascending: true })
-          .limit(RESULT_LIMIT);
+          .limit(FETCH_LIMIT);
 
-        const trimmed = debouncedQuery.trim();
-        if (trimmed) {
-          const escaped = escapeIlike(trimmed);
-          builder = builder.or(`name.ilike.%${escaped}%,aliases.ilike.%${escaped}%`);
+        if (partFilter !== 'all') {
+          builder = builder.eq('target_part', partFilter);
         }
 
         const { data, error: queryError } = await builder;
@@ -82,10 +92,13 @@ export default function ExerciseSelector({
 
         if (queryError) {
           setFetchError('운동 목록을 불러오지 못했습니다.');
+          setCandidates([]);
           setResults([]);
-        } else {
-          setResults(data ?? []);
+          return;
         }
+
+        const fetched = (data ?? []) as Array<ExerciseMeta & { aliases?: string[] | null }>;
+        setCandidates(fetched);
       } finally {
         if (isActive) {
           setIsLoading(false);
@@ -98,7 +111,32 @@ export default function ExerciseSelector({
     return () => {
       isActive = false;
     };
-  }, [debouncedQuery, disabled, supabase]);
+  }, [disabled, supabase, partFilter]);
+
+  useEffect(() => {
+    const trimmed = debouncedQuery.trim();
+    const normalized = normalizeSearch(trimmed);
+
+    if (!trimmed) {
+      setResults(candidates.slice(0, RESULT_LIMIT));
+      return;
+    }
+
+    const filtered = candidates.filter(ex => {
+      const name = ex.name ?? '';
+      const aliases = ex.aliases ?? [];
+
+      const haystack = [name, ...aliases].filter(Boolean);
+      return haystack.some(text => {
+        const t = String(text);
+        if (t.includes(trimmed)) return true;
+        if (t.toLowerCase().includes(trimmed.toLowerCase())) return true;
+        return normalizeSearch(t).includes(normalized);
+      });
+    });
+
+    setResults(filtered.slice(0, 50));
+  }, [debouncedQuery, candidates]);
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
@@ -124,12 +162,39 @@ export default function ExerciseSelector({
   const handleClear = useCallback(() => {
     setQuery('');
     setResults([]);
+    setDebouncedQuery('');
     onClear?.();
     setIsOpen(true);
   }, [onClear]);
 
   return (
     <div ref={containerRef} className="relative w-full">
+      <div className="mb-3">
+        <label className="block text-sm font-medium text-slate-700 mb-2">부위</label>
+        <select
+          className={cn(
+            'w-full px-4 py-3 border rounded-lg text-base',
+            'focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent',
+            'disabled:bg-gray-100 disabled:cursor-not-allowed',
+            'transition-all',
+            error ? 'border-red-500' : 'border-slate-300'
+          )}
+          value={partFilter}
+          onChange={e => {
+            setPartFilter(e.target.value as ExercisePart | 'all');
+            setIsOpen(true);
+          }}
+          disabled={disabled}
+        >
+          <option value="all">전체</option>
+          {EXERCISE_PARTS.map(part => (
+            <option key={part} value={part}>
+              {PART_LABELS[part]}
+            </option>
+          ))}
+        </select>
+      </div>
+
       <Input
         label={label}
         helperText={helperText}
