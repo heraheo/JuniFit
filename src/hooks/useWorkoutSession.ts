@@ -306,7 +306,8 @@ export function useWorkoutSession({
     const initialNotes: ExerciseNotes = {};
 
     programData.exercises.forEach((exercise) => {
-      initialInputs[exercise.id] = Array(exercise.target_sets).fill(null).map(() => ({
+      const setsCount = exercise.target_sets || 1;
+      initialInputs[exercise.id] = Array(setsCount).fill(null).map(() => ({
         weight: "",
         reps: "",
         time: "",
