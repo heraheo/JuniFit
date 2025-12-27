@@ -411,14 +411,6 @@ export default function Page() {
                 </div>
               )}
 
-              <Input
-                label="의도 (선택)"
-                value={ex.intention}
-                onChange={(e) => actions.updateExercise(ex.id, (prev) => ({ ...prev, intention: e.target.value }))}
-                placeholder="예: 가슴 근육 강화"
-                className="text-sm"
-              />
-
               {validation.errors.exercises?.[ex.id]?.summary && (
                 <p className="text-sm text-red-600 mt-2">{validation.errors.exercises[ex.id].summary}</p>
               )}

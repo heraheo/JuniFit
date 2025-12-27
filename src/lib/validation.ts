@@ -74,7 +74,6 @@ export type ProgramExerciseForm = {
   targetWeight: string;
   targetReps: string;
   targetTime: string;
-  intention: string;
 };
 
 // Backward-compat alias (older code used ExerciseInput)

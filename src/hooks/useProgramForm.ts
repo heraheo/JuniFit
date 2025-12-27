@@ -47,7 +47,6 @@ export function useProgramForm(options: UseProgramFormOptions = {}) {
         targetWeight: "",
         targetReps: "",
         targetTime: "",
-        intention: "",
       },
     ],
   });
@@ -85,7 +84,6 @@ export function useProgramForm(options: UseProgramFormOptions = {}) {
           targetWeight: "",
           targetReps: "",
           targetTime: "",
-          intention: "",
         },
       ],
     }));

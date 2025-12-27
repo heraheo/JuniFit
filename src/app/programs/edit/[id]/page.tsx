@@ -155,7 +155,6 @@ export default function ProgramEditPage() {
           targetWeight: ex.target_weight != null ? String(ex.target_weight) : '',
           targetReps: ex.target_reps != null ? String(ex.target_reps) : '',
           targetTime: ex.target_time != null ? String(ex.target_time) : '',
-          intention: '',
         };
       });
 
@@ -171,7 +170,6 @@ export default function ProgramEditPage() {
           targetWeight: "",
           targetReps: "",
           targetTime: "",
-          intention: "",
         }
       ]);
 
@@ -202,7 +200,6 @@ export default function ProgramEditPage() {
         targetWeight: "",
         targetReps: "",
         targetTime: "",
-        intention: "",
       },
     ]);
   };
@@ -536,14 +533,6 @@ export default function ProgramEditPage() {
                   />
                 </div>
               )}
-
-              <Input
-                label="의도 (선택)"
-                value={ex.intention}
-                onChange={(e) => updateExercise(ex.id, (prev) => ({ ...prev, intention: e.target.value }))}
-                placeholder="예: 가슴 근육 강화"
-                className="text-sm"
-              />
 
               {errors.exercises?.[ex.id]?.summary && (
                 <p className="text-sm text-red-600 mt-2">{errors.exercises[ex.id].summary}</p>
