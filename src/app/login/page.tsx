@@ -22,7 +22,7 @@ function LoginContent() {
   const handleKakaoLogin = async () => {
     setIsLoading(true);
     setErrorMessage(null);
-    
+
     try {
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'kakao',

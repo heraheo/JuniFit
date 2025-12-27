@@ -125,7 +125,7 @@ export default function ProgramEditPage() {
           .single(),
         supabase
           .from('program_exercises')
-          .select('id, program_id, exercise_id, order, target_sets, target_reps, target_weight, target_time, rest_seconds, intention, exercises ( id, name, target_part, record_type )')
+          .select('id, program_id, exercise_id, order, target_sets, target_reps, target_weight, target_time, rest_seconds, exercises ( id, name, target_part, record_type )')
           .eq('program_id', programId)
           .order('order', { ascending: true })
       ]);
@@ -155,7 +155,7 @@ export default function ProgramEditPage() {
           targetWeight: ex.target_weight != null ? String(ex.target_weight) : '',
           targetReps: ex.target_reps != null ? String(ex.target_reps) : '',
           targetTime: ex.target_time != null ? String(ex.target_time) : '',
-          intention: ex.intention || '',
+          intention: '',
         };
       });
 
@@ -316,67 +316,15 @@ export default function ProgramEditPage() {
           order: index,
           target_sets: Number(ex.targetSets),
           target_weight: ex.recordType === "weight_reps" ? numberOrNull(ex.targetWeight) : null,
-          target_reps: ex.recordType === "time" ? 0 : numberOrNull(ex.targetReps),
+          target_reps: (ex.recordType === "reps_only" || ex.recordType === "weight_reps") ? numberOrNull(ex.targetReps) : null,
           target_time: ex.recordType === "time" ? numberOrNull(ex.targetTime) : null,
-          rest_seconds: Number(ex.restSeconds),
-          intention: ex.intention?.trim() || null,
+          rest_seconds: numberOrNull(ex.restSeconds),
         }));
 
       let exercisesError: any = null;
       ({ error: exercisesError } = await supabase
         .from('program_exercises')
         .insert(programExercises));
-
-      if (exercisesError && looksLikeMissingColumn(exercisesError, 'intention')) {
-        ({ error: exercisesError } = await supabase
-          .from('program_exercises')
-          .insert(stripField(programExercises, 'intention') as any));
-      }
-
-      if (exercisesError && isRlsError(exercisesError)) {
-        const withUserId = programExercises.map((row) => ({ ...row, user_id: user.id }));
-        ({ error: exercisesError } = await supabase
-          .from('program_exercises')
-          .insert(withUserId));
-      }
-
-      if (exercisesError && looksLikeMissingColumn(exercisesError, 'intention')) {
-        const withUserId = programExercises.map((row) => ({ ...row, user_id: user.id }));
-        ({ error: exercisesError } = await supabase
-          .from('program_exercises')
-          .insert(stripField(withUserId as any, 'intention') as any));
-      }
-
-      if (
-        exercisesError &&
-        (looksLikeMissingColumn(exercisesError, 'exercise_id') ||
-          looksLikeMissingColumn(exercisesError, 'target_weight') ||
-          looksLikeMissingColumn(exercisesError, 'target_time') ||
-          looksLikeMissingColumn(exercisesError, 'record_type') ||
-          looksLikeMissingColumn(exercisesError, 'intention'))
-      ) {
-        const legacyRows = completeExercises.map((ex, index) => ({
-          program_id: programId,
-          name: ex.exerciseName,
-          order: index,
-          target_sets: Number(ex.targetSets),
-          target_reps: ex.recordType === 'time' ? Number(ex.targetTime) : Number(ex.targetReps),
-          rest_seconds: Number(ex.restSeconds),
-          intention: ex.intention?.trim() || null,
-          note: null,
-          user_id: user.id,
-        }));
-
-        ({ error: exercisesError } = await supabase
-          .from('program_exercises')
-          .insert(legacyRows as any));
-
-        if (exercisesError && looksLikeMissingColumn(exercisesError, 'intention')) {
-          ({ error: exercisesError } = await supabase
-            .from('program_exercises')
-            .insert(stripField(legacyRows as any, 'intention') as any));
-        }
-      }
 
       if (exercisesError) throw exercisesError;
 

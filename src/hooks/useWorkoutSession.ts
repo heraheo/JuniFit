@@ -5,6 +5,7 @@ import type { ProgramWithExercises } from '@/lib/api';
 type SetInput = {
   weight: string;
   reps: string;
+  time: string;
   completed: boolean;
 };
 
@@ -17,6 +18,7 @@ type InputErrors = {
     [setIndex: number]: {
       weight?: string;
       reps?: string;
+      time?: string;
     };
   };
 };
@@ -61,18 +63,21 @@ export function useWorkoutSession({
   const [showCompletionModal, setShowCompletionModal] = useState(false);
 
   // 입력값 검증
-  const validateInput = useCallback((value: string, field: 'weight' | 'reps'): string | null => {
+  const validateInput = useCallback((value: string, field: 'weight' | 'reps' | 'time'): string | null => {
     if (value.trim() === '') return null;
-    
+
     const numValue = parseFloat(value);
     if (isNaN(numValue) || numValue <= 0) {
-      return field === 'weight' ? '무게는 양수여야 합니다' : '횟수는 양의 정수여야 합니다';
+      if (field === 'weight') return '무게는 양수여야 합니다';
+      if (field === 'reps') return '횟수는 양의 정수여야 합니다';
+      if (field === 'time') return '시간은 양수여야 합니다';
+      return '올바른 값을 입력해주세요';
     }
-    
+
     if (field === 'reps' && !Number.isInteger(numValue)) {
       return '횟수는 정수여야 합니다';
     }
-    
+
     return null;
   }, []);
 
@@ -81,16 +86,16 @@ export function useWorkoutSession({
     if (value !== '' && !/^\d*\.?\d*$/.test(value)) {
       return;
     }
-    
+
     setInputs(prev => {
       // inputs[exerciseId]가 존재하지 않으면 초기화
       if (!prev[exerciseId]) {
         return prev;
       }
-      
+
       return {
         ...prev,
-        [exerciseId]: prev[exerciseId].map((set, idx) => 
+        [exerciseId]: prev[exerciseId].map((set, idx) =>
           idx === setIndex ? { ...set, [field]: value } : set
         )
       };
@@ -127,20 +132,40 @@ export function useWorkoutSession({
     const currentSet = inputs[exerciseId]?.[setIndex];
     if (!currentSet) return;
 
+    const recordType = exercise.record_type;
+
     // 입력값 검증
     const weight = currentSet.weight.trim();
     const reps = currentSet.reps.trim();
+    const time = currentSet.time.trim();
 
-    if (weight === '' || reps === '') {
+    if (recordType === 'weight_reps' && (weight === '' || reps === '')) {
       alert('무게와 횟수를 입력해주세요.');
+      return;
+    }
+    if (recordType === 'reps_only' && reps === '') {
+      alert('횟수를 입력해주세요.');
+      return;
+    }
+    if (recordType === 'time' && time === '') {
+      alert('시간을 입력해주세요.');
       return;
     }
 
     const weightNum = parseFloat(weight);
     const repsNum = parseFloat(reps);
+    const timeNum = parseFloat(time);
 
-    if (isNaN(weightNum) || weightNum <= 0 || isNaN(repsNum) || repsNum <= 0) {
+    if (recordType === 'weight_reps' && (isNaN(weightNum) || weightNum <= 0 || isNaN(repsNum) || repsNum <= 0)) {
       alert('올바른 값을 입력해주세요.');
+      return;
+    }
+    if (recordType === 'reps_only' && (isNaN(repsNum) || repsNum <= 0)) {
+      alert('올바른 횟수를 입력해주세요.');
+      return;
+    }
+    if (recordType === 'time' && (isNaN(timeNum) || timeNum <= 0)) {
+      alert('올바른 시간을 입력해주세요.');
       return;
     }
 
@@ -148,7 +173,7 @@ export function useWorkoutSession({
 
     setInputs(prev => ({
       ...prev,
-      [exerciseId]: prev[exerciseId].map((set, idx) => 
+      [exerciseId]: prev[exerciseId].map((set, idx) =>
         idx === setIndex ? { ...set, completed: newCompletedState } : set
       )
     }));
@@ -172,27 +197,30 @@ export function useWorkoutSession({
   // 다음 운동으로 이동 (타이머 없음)
   const moveToNextExercise = useCallback(() => {
     if (!program) return;
-    
+
     // 현재 운동의 미완료 세트 확인
     const currentExercise = program.exercises[currentIndex];
     const exerciseInputs = inputs[currentExercise.id] || [];
-    const incompleteSets = exerciseInputs.filter(set => !set.completed && (set.weight.trim() !== '' || set.reps.trim() !== ''));
-    
+    const incompleteSets = exerciseInputs.filter(set => !set.completed && (
+      set.weight.trim() !== '' || set.reps.trim() !== '' || set.time.trim() !== ''
+    ));
+
     // 미완료 세트가 있으면 확인
     if (incompleteSets.length > 0) {
       const confirmed = window.confirm('입력하지 않은 세트가 있습니다. 다음 운동으로 넘어가시겠습니까?');
       if (!confirmed) {
         return;
       }
-      
+
       // 확인했으면 미완료 세트를 0으로 저장하고 완료 처리
       setInputs(prev => ({
         ...prev,
         [currentExercise.id]: prev[currentExercise.id].map(set => {
-          if (!set.completed && (set.weight.trim() !== '' || set.reps.trim() !== '')) {
+          if (!set.completed && (set.weight.trim() !== '' || set.reps.trim() !== '' || set.time.trim() !== '')) {
             return {
               weight: set.weight.trim() || '0',
               reps: set.reps.trim() || '0',
+              time: set.time.trim() || '0',
               completed: true,
             };
           }
@@ -200,14 +228,14 @@ export function useWorkoutSession({
         })
       }));
     }
-    
+
     const nextIndex = currentIndex + 1;
-    
+
     if (nextIndex >= program.exercises.length) {
       completeAll();
     } else {
       setCurrentIndex(nextIndex);
-      
+
       setTimeout(() => {
         const nextExercise = program.exercises[nextIndex];
         const ref = exerciseRefs.current[nextExercise.id];
@@ -221,46 +249,50 @@ export function useWorkoutSession({
   // 모든 운동 완료 처리
   const completeAll = useCallback(async () => {
     if (isSaving || !program) return;
-    
+
     setIsSaving(true);
-    
+
     try {
       if (sessionId) {
         for (const exercise of program.exercises) {
           const exerciseInputs = inputs[exercise.id] || [];
           const exerciseNote = notes[exercise.id] || '';
-          
+
           // 모든 세트를 저장 (미완료 세트는 0으로)
           for (let i = 0; i < exerciseInputs.length; i++) {
             const set = exerciseInputs[i];
-            const weight = set.completed ? (parseFloat(set.weight) || 0) : 0;
-            const reps = set.completed ? (parseInt(set.reps) || 0) : 0;
-            
+            const recordType = exercise.record_type;
+
+            const weight = set.completed && (recordType === 'weight_reps') ? (parseFloat(set.weight) || 0) : null;
+            const reps = set.completed && (recordType === 'weight_reps' || recordType === 'reps_only') ? (parseInt(set.reps) || 0) : null;
+            const time = set.completed && (recordType === 'time') ? (parseFloat(set.time) || 0) : null;
+
             const result = await saveWorkoutSet(
               sessionId,
+              exercise.exercise_id,
               exercise.name,
               i + 1,
               weight,
               reps,
-              undefined,
+              time,
               exerciseNote || undefined
             );
-            
+
             if (!result) {
               throw new Error(`${exercise.name} ${i + 1}세트 저장 실패`);
             }
           }
         }
-        
+
         const sessionResult = await completeWorkoutSession(sessionId);
         if (!sessionResult) {
           throw new Error('세션 완료 처리 실패');
         }
       }
-      
+
       setIsSaving(false);
       setShowCompletionModal(true);
-      
+
     } catch (error) {
       console.error('운동 기록 저장 실패:', error);
       setIsSaving(false);
@@ -272,16 +304,17 @@ export function useWorkoutSession({
   const initializeInputs = useCallback((programData: ProgramWithExercises) => {
     const initialInputs: Record<string, SetInput[]> = {};
     const initialNotes: ExerciseNotes = {};
-    
+
     programData.exercises.forEach((exercise) => {
       initialInputs[exercise.id] = Array(exercise.target_sets).fill(null).map(() => ({
         weight: "",
         reps: "",
+        time: "",
         completed: false,
       }));
       initialNotes[exercise.id] = "";
     });
-    
+
     setInputs(initialInputs);
     setNotes(initialNotes);
   }, []);

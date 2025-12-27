@@ -189,77 +189,17 @@ export default function Page() {
           exercise_id: ex.exerciseId!,
           order: index,
           target_sets: Number(ex.targetSets),
-          target_weight: ex.recordType === "weight_reps" ? numberOrNull(ex.targetWeight)! : null,
-          // 일부 DB에서는 target_reps가 NOT NULL일 수 있어 time 타입에서 0을 넣고 target_time을 사용
-          target_reps:
-            ex.recordType === "time" ? 0 : numberOrNull(ex.targetReps)!,
-          target_time: ex.recordType === "time" ? numberOrNull(ex.targetTime)! : null,
-          rest_seconds: Number(ex.restSeconds),
-          intention: ex.intention?.trim() || null,
+          target_weight: ex.recordType === "weight_reps" ? numberOrNull(ex.targetWeight) : null,
+          target_reps: (ex.recordType === "reps_only" || ex.recordType === "weight_reps") ? numberOrNull(ex.targetReps) : null,
+          target_time: ex.recordType === "time" ? numberOrNull(ex.targetTime) : null,
+          rest_seconds: numberOrNull(ex.restSeconds),
         }));
 
-      // Insert exercises with schema/policy fallbacks.
+      // Insert exercises
       let exercisesError: any = null;
-
       ({ error: exercisesError } = await supabase
         .from('program_exercises')
         .insert(programExercises));
-
-      // Some deployments don't have intention column yet.
-      if (exercisesError && looksLikeMissingColumn(exercisesError, 'intention')) {
-        ({ error: exercisesError } = await supabase
-          .from('program_exercises')
-          .insert(stripField(programExercises, 'intention') as any));
-      }
-
-      // If RLS blocks insert, try adding user_id if the column exists.
-      if (exercisesError && isRlsError(exercisesError)) {
-        const withUserId = programExercises.map((row) => ({ ...row, user_id: user.id }));
-        ({ error: exercisesError } = await supabase
-          .from('program_exercises')
-          .insert(withUserId));
-      }
-
-      if (exercisesError && looksLikeMissingColumn(exercisesError, 'intention')) {
-        const withUserId = programExercises.map((row) => ({ ...row, user_id: user.id }));
-        ({ error: exercisesError } = await supabase
-          .from('program_exercises')
-          .insert(stripField(withUserId as any, 'intention') as any));
-      }
-
-      // If DB is still on the old schema (name/target_reps/target_sets), fall back.
-      if (
-        exercisesError &&
-        (looksLikeMissingColumn(exercisesError, 'exercise_id') ||
-          looksLikeMissingColumn(exercisesError, 'target_weight') ||
-          looksLikeMissingColumn(exercisesError, 'target_time') ||
-          looksLikeMissingColumn(exercisesError, 'record_type') ||
-          looksLikeMissingColumn(exercisesError, 'intention'))
-      ) {
-        const legacyRows = completeExercises.map((ex, index) => ({
-          program_id: programId,
-          name: ex.exerciseName,
-          order: index,
-          target_sets: Number(ex.targetSets),
-          // legacy schema only supports reps; store time(seconds) into target_reps as a best-effort.
-          target_reps: ex.recordType === 'time' ? Number(ex.targetTime) : Number(ex.targetReps),
-          rest_seconds: Number(ex.restSeconds),
-          // optional in some schemas
-          intention: ex.intention?.trim() || null,
-          note: null,
-          user_id: user.id,
-        }));
-
-        ({ error: exercisesError } = await supabase
-          .from('program_exercises')
-          .insert(legacyRows as any));
-
-        if (exercisesError && looksLikeMissingColumn(exercisesError, 'intention')) {
-          ({ error: exercisesError } = await supabase
-            .from('program_exercises')
-            .insert(stripField(legacyRows as any, 'intention') as any));
-        }
-      }
 
       if (exercisesError) {
         // Prevent creating a program with 0 exercises.

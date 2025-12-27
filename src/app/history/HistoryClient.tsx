@@ -16,6 +16,7 @@ type EditingSet = {
   id: string;
   weight: string;
   reps: string;
+  time: string;
 };
 
 interface HistoryClientProps {
@@ -65,8 +66,9 @@ export function HistoryClient({ initialLogs, initialLimit = PAGE_SIZE }: History
     log.sets.forEach((set) => {
       setsMap[set.id] = {
         id: set.id,
-        weight: String(set.weight),
-        reps: String(set.reps),
+        weight: String(set.weight || ''),
+        reps: String(set.reps || ''),
+        time: String(set.time || ''),
       };
     });
     setEditingSets(setsMap);
@@ -87,9 +89,10 @@ export function HistoryClient({ initialLogs, initialLimit = PAGE_SIZE }: History
         if (editedSet) {
           const weight = parseFloat(editedSet.weight) || 0;
           const reps = parseInt(editedSet.reps) || 0;
-          
-          if (weight !== set.weight || reps !== set.reps) {
-            await updateWorkoutSet(set.id, weight, reps);
+          const time = parseFloat(editedSet.time) || 0;
+
+          if (weight !== set.weight || reps !== set.reps || time !== set.time) {
+            await updateWorkoutSet(set.id, weight || null, reps || null, time || null);
           }
         }
       }

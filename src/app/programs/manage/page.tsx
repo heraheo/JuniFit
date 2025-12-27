@@ -36,7 +36,7 @@ export default function ProgramsManagePage() {
         .order('created_at', { ascending: false }),
       supabase
         .from('program_exercises')
-        .select('id, program_id, exercise_id, order, target_sets, target_reps, target_weight, target_time, rest_seconds, intention, created_at, exercises ( name, target_part, record_type )')
+        .select('id, program_id, exercise_id, order, target_sets, target_reps, target_weight, target_time, rest_seconds, created_at, exercises ( name, target_part, record_type )')
         .order('order', { ascending: true })
     ]);
 
@@ -196,8 +196,18 @@ export default function ProgramsManagePage() {
                                   </h4>
                                   <div className="flex items-center gap-2 mt-1 text-xs text-slate-500">
                                     <span>{exercise.target_sets}세트</span>
-                                    <span>×</span>
-                                    <span>{exercise.target_reps}회</span>
+                                    {exercise.target_reps && (
+                                      <>
+                                        <span>×</span>
+                                        <span>{exercise.target_reps}회</span>
+                                      </>
+                                    )}
+                                    {exercise.target_time && (
+                                      <>
+                                        <span>×</span>
+                                        <span>{exercise.target_time}초</span>
+                                      </>
+                                    )}
                                     {exercise.rest_seconds && (
                                       <>
                                         <span className="text-slate-300">|</span>
@@ -205,11 +215,6 @@ export default function ProgramsManagePage() {
                                       </>
                                     )}
                                   </div>
-                                  {exercise.intention && (
-                                    <p className="text-xs text-blue-600 mt-1">
-                                      💡 {exercise.intention}
-                                    </p>
-                                  )}
                                 </div>
                               </div>
                             </div>

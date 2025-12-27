@@ -87,15 +87,16 @@ export function cn(...classes: (string | undefined | null | false)[]): string {
 }
 
 // 세트를 운동별로 그룹화 (제네릭)
-export function groupSetsByExercise<T extends { exercise_name: string }>(
+export function groupSetsByExercise<T extends { exercise_name?: string }>(
   sets: T[]
 ): Record<string, T[]> {
   const grouped: Record<string, T[]> = {};
   sets.forEach((set) => {
-    if (!grouped[set.exercise_name]) {
-      grouped[set.exercise_name] = [];
+    const exerciseName = set.exercise_name || '';
+    if (!grouped[exerciseName]) {
+      grouped[exerciseName] = [];
     }
-    grouped[set.exercise_name].push(set);
+    grouped[exerciseName].push(set);
   });
   return grouped;
 }

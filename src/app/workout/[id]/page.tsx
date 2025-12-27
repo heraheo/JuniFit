@@ -186,9 +186,15 @@ export default function WorkoutDetailPage({ params }: Props) {
                           {exercise.name}
                         </h3>
                         <div className="flex items-center gap-2 mt-0.5">
-                          <span className="text-xs text-slate-500">
-                            {exercise.target_sets}세트 × {exercise.target_reps}회
-                          </span>
+                          {exercise.record_type === 'time' ? (
+                            <span className="text-xs text-slate-500">
+                              {exercise.target_sets}세트 × {exercise.target_time}초
+                            </span>
+                          ) : (
+                            <span className="text-xs text-slate-500">
+                              {exercise.target_sets}세트 × {exercise.target_reps}회
+                            </span>
+                          )}
                           {exercise.rest_seconds && (
                             <>
                               <span className="text-xs text-slate-400">•</span>
@@ -206,23 +212,16 @@ export default function WorkoutDetailPage({ params }: Props) {
                 {/* 운동 입력 영역 (현재 운동만 펼침) */}
                 {isCurrent && (
                   <div className="p-4 border-t border-gray-100">
-                    {exercise.intention && (
-                      <div className="mb-4 p-3 bg-yellow-50 rounded-lg border border-yellow-100">
-                        <p className="text-sm text-yellow-800">
-                          💡 {exercise.intention}
-                        </p>
-                      </div>
-                    )}
-                    
                     <div className="space-y-3">
-                      {Array.from({ length: exercise.target_sets }, (_, setIndex) => {
+                      {Array.from({ length: exercise.target_sets || 0 }, (_, setIndex) => {
                         const setData = session.inputs[exercise.id]?.[setIndex];
                         const isSetCompleted = setData?.completed || false;
+                        const recordType = exercise.record_type;
 
                         return (
-                          <div 
-                            key={setIndex} 
-                            className={`grid grid-cols-[auto_1fr_1fr_auto] gap-3 items-center p-3 rounded-lg transition-all ${
+                          <div
+                            key={setIndex}
+                            className={`grid grid-cols-[auto_1fr_auto] gap-3 items-center p-3 rounded-lg transition-all ${
                               isSetCompleted ? 'bg-green-50 border border-green-200' : 'bg-gray-50'
                             }`}
                           >
@@ -235,50 +234,101 @@ export default function WorkoutDetailPage({ params }: Props) {
                                 {setIndex + 1}
                               </span>
                             </div>
-                            
-                            <div>
-                              <input
-                                type="text"
-                                inputMode="numeric"
-                                placeholder="kg"
-                                value={setData?.weight || ""}
-                                onChange={(e) => session.actions.updateInput(exercise.id, setIndex, "weight", e.target.value)}
-                                disabled={isSetCompleted}
-                                className={`w-full p-2 border rounded-lg text-center font-medium focus:outline-none focus:ring-2 ${
-                                  isSetCompleted 
-                                    ? 'bg-white border-green-300 text-green-800' 
-                                    : session.errors[exercise.id]?.[setIndex]?.weight
-                                    ? "border-red-300 focus:ring-red-500"
-                                    : "border-gray-300 focus:ring-blue-500"
-                                }`}
-                              />
-                              <label className="block text-xs text-center text-slate-500 mt-1">무게</label>
-                            </div>
 
-                            <div>
-                              <input
-                                type="text"
-                                inputMode="numeric"
-                                placeholder="회"
-                                value={setData?.reps || ""}
-                                onChange={(e) => session.actions.updateInput(exercise.id, setIndex, "reps", e.target.value)}
-                                disabled={isSetCompleted}
-                                className={`w-full p-2 border rounded-lg text-center font-medium focus:outline-none focus:ring-2 ${
-                                  isSetCompleted 
-                                    ? 'bg-white border-green-300 text-green-800' 
-                                    : session.errors[exercise.id]?.[setIndex]?.reps
-                                    ? "border-red-300 focus:ring-red-500"
-                                    : "border-gray-300 focus:ring-blue-500"
-                                }`}
-                              />
-                              <label className="block text-xs text-center text-slate-500 mt-1">횟수</label>
-                            </div>
+                            {recordType === 'weight_reps' && (
+                              <>
+                                <div className="grid grid-cols-2 gap-3">
+                                  <div>
+                                    <input
+                                      type="text"
+                                      inputMode="numeric"
+                                      placeholder="kg"
+                                      value={setData?.weight || ""}
+                                      onChange={(e) => session.actions.updateInput(exercise.id, setIndex, "weight", e.target.value)}
+                                      disabled={isSetCompleted}
+                                      className={`w-full p-2 border rounded-lg text-center font-medium focus:outline-none focus:ring-2 ${
+                                        isSetCompleted
+                                          ? 'bg-white border-green-300 text-green-800'
+                                          : session.errors[exercise.id]?.[setIndex]?.weight
+                                          ? "border-red-300 focus:ring-red-500"
+                                          : "border-gray-300 focus:ring-blue-500"
+                                      }`}
+                                    />
+                                    <label className="block text-xs text-center text-slate-500 mt-1">무게</label>
+                                  </div>
+                                  <div>
+                                    <input
+                                      type="text"
+                                      inputMode="numeric"
+                                      placeholder="회"
+                                      value={setData?.reps || ""}
+                                      onChange={(e) => session.actions.updateInput(exercise.id, setIndex, "reps", e.target.value)}
+                                      disabled={isSetCompleted}
+                                      className={`w-full p-2 border rounded-lg text-center font-medium focus:outline-none focus:ring-2 ${
+                                        isSetCompleted
+                                          ? 'bg-white border-green-300 text-green-800'
+                                          : session.errors[exercise.id]?.[setIndex]?.reps
+                                          ? "border-red-300 focus:ring-red-500"
+                                          : "border-gray-300 focus:ring-blue-500"
+                                      }`}
+                                    />
+                                    <label className="block text-xs text-center text-slate-500 mt-1">횟수</label>
+                                  </div>
+                                </div>
+                              </>
+                            )}
+
+                            {recordType === 'reps_only' && (
+                              <div className="grid grid-cols-2 gap-3">
+                                <div>
+                                  <input
+                                    type="text"
+                                    inputMode="numeric"
+                                    placeholder="회"
+                                    value={setData?.reps || ""}
+                                    onChange={(e) => session.actions.updateInput(exercise.id, setIndex, "reps", e.target.value)}
+                                    disabled={isSetCompleted}
+                                    className={`w-full p-2 border rounded-lg text-center font-medium focus:outline-none focus:ring-2 ${
+                                      isSetCompleted
+                                        ? 'bg-white border-green-300 text-green-800'
+                                        : session.errors[exercise.id]?.[setIndex]?.reps
+                                        ? "border-red-300 focus:ring-red-500"
+                                        : "border-gray-300 focus:ring-blue-500"
+                                    }`}
+                                  />
+                                  <label className="block text-xs text-center text-slate-500 mt-1">횟수</label>
+                                </div>
+                              </div>
+                            )}
+
+                            {recordType === 'time' && (
+                              <div className="grid grid-cols-2 gap-3">
+                                <div>
+                                  <input
+                                    type="text"
+                                    inputMode="numeric"
+                                    placeholder="초"
+                                    value={setData?.time || ""}
+                                    onChange={(e) => session.actions.updateInput(exercise.id, setIndex, "time", e.target.value)}
+                                    disabled={isSetCompleted}
+                                    className={`w-full p-2 border rounded-lg text-center font-medium focus:outline-none focus:ring-2 ${
+                                      isSetCompleted
+                                        ? 'bg-white border-green-300 text-green-800'
+                                        : session.errors[exercise.id]?.[setIndex]?.time
+                                        ? "border-red-300 focus:ring-red-500"
+                                        : "border-gray-300 focus:ring-blue-500"
+                                    }`}
+                                  />
+                                  <label className="block text-xs text-center text-slate-500 mt-1">시간(초)</label>
+                                </div>
+                              </div>
+                            )}
 
                             <button
                               onClick={() => session.actions.toggleSetComplete(exercise.id, setIndex)}
                               className={`p-2 rounded-lg transition-all ${
-                                isSetCompleted 
-                                  ? 'bg-green-500 hover:bg-green-600' 
+                                isSetCompleted
+                                  ? 'bg-green-500 hover:bg-green-600'
                                   : 'bg-white border-2 border-blue-500 hover:bg-blue-50'
                               }`}
                               title={isSetCompleted ? '완료 취소' : '세트 완료'}
@@ -313,11 +363,14 @@ export default function WorkoutDetailPage({ params }: Props) {
                 {isCompleted && (
                   <div className="px-4 pb-4 space-y-2">
                     <div className="flex flex-wrap gap-2">
-                      {session.inputs[exercise.id]?.filter(set => set.completed).map((set, idx) => (
-                        <span key={idx} className="text-xs bg-green-100 text-green-800 px-2 py-1 rounded">
-                          {idx + 1}세트: {set.weight}kg × {set.reps}회
-                        </span>
-                      ))}
+                      {session.inputs[exercise.id]?.filter(set => set.completed).map((set, idx) => {
+                        const recordType = exercise.record_type;
+                        return (
+                          <span key={idx} className="text-xs bg-green-100 text-green-800 px-2 py-1 rounded">
+                            {idx + 1}세트: {recordType === 'time' ? `${set.time}초` : recordType === 'reps_only' ? `${set.reps}회` : `${set.weight}kg × ${set.reps}회`}
+                          </span>
+                        );
+                      })}
                     </div>
                     {session.notes[exercise.id] && (
                       <div className="mt-2 p-2 bg-gray-50 rounded text-xs text-gray-700 border border-gray-200">
@@ -421,38 +474,42 @@ export default function WorkoutDetailPage({ params }: Props) {
               <p className="text-slate-600">오늘도 수고하셨습니다</p>
             </div>
 
-            <div className="mb-6">
-              <h3 className="font-semibold text-slate-800 mb-3">오늘의 운동 기록</h3>
-              <div className="space-y-3">
-                {program?.exercises.map((exercise) => {
-                  const inputs = session.inputs[exercise.id] || [];
-                  const completedSets = inputs.filter(set => set.completed);
-                  
-                  if (completedSets.length === 0) return null;
-                  
-                  return (
-                    <div key={exercise.id} className="bg-gray-50 rounded-lg p-3">
-                      <h4 className="font-medium text-slate-700 mb-2">{exercise.name}</h4>
-                      <div className="space-y-1">
-                        {completedSets.map((set, index) => (
-                          <div key={index} className="flex justify-between text-sm">
-                            <span className="text-slate-600">{index + 1}세트</span>
-                            <span className="text-slate-800">{set.weight}kg × {set.reps}회</span>
-                          </div>
-                        ))}
-                      </div>
-                      {session.notes[exercise.id] && (
-                        <div className="mt-2 pt-2 border-t border-gray-200">
-                          <p className="text-xs text-gray-600">
-                            <span className="font-medium">메모:</span> {session.notes[exercise.id]}
-                          </p>
+              <div className="mb-6">
+                <h3 className="font-semibold text-slate-800 mb-3">오늘의 운동 기록</h3>
+                <div className="space-y-3">
+                  {program?.exercises.map((exercise) => {
+                    const inputs = session.inputs[exercise.id] || [];
+                    const completedSets = inputs.filter(set => set.completed);
+
+                    if (completedSets.length === 0) return null;
+
+                    const recordType = exercise.record_type;
+
+                    return (
+                      <div key={exercise.id} className="bg-gray-50 rounded-lg p-3">
+                        <h4 className="font-medium text-slate-700 mb-2">{exercise.name}</h4>
+                        <div className="space-y-1">
+                          {completedSets.map((set, index) => (
+                            <div key={index} className="flex justify-between text-sm">
+                              <span className="text-slate-600">{index + 1}세트</span>
+                              <span className="text-slate-800">
+                                {recordType === 'time' ? `${set.time}초` : recordType === 'reps_only' ? `${set.reps}회` : `${set.weight}kg × ${set.reps}회`}
+                              </span>
+                            </div>
+                          ))}
                         </div>
-                      )}
-                    </div>
-                  );
-                })}
+                        {session.notes[exercise.id] && (
+                          <div className="mt-2 pt-2 border-t border-gray-200">
+                            <p className="text-xs text-gray-600">
+                              <span className="font-medium">메모:</span> {session.notes[exercise.id]}
+                            </p>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
-            </div>
 
             <div className="flex gap-3">
               <Button

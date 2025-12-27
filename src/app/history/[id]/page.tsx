@@ -10,7 +10,6 @@ import {
   getWorkoutLogById,
   deleteWorkoutSession,
   updateWorkoutSet,
-  updateSessionNote,
 } from "@/lib/api";
 import type { WorkoutSet, WorkoutLogDetail } from "@/types/database";
 import { formatDateWithWeekday, formatTime, calculateDuration, groupSetsByExercise } from "@/lib/utils";
@@ -22,13 +21,14 @@ type EditableSet = {
   session_id: string;
   exercise_name: string;
   set_number: number;
-  weight: number;
-  reps: number;
-  rpe?: number | null;
-  created_at: string;
+  weight: number | null;
+  reps: number | null;
+  time: number | null;
+  created_at: string | null;
   isEditing?: boolean;
-  editWeight?: number;
-  editReps?: number;
+  editWeight?: number | null;
+  editReps?: number | null;
+  editTime?: number | null;
   editRpe?: number | null;
   isNew?: boolean;
 };
@@ -44,9 +44,6 @@ export default function WorkoutLogDetailPage({
   const [loading, setLoading] = useState(true);
   const [deleting, setDeleting] = useState(false);
   const [editableSets, setEditableSets] = useState<EditableSet[]>([]);
-  const [isEditingNote, setIsEditingNote] = useState(false);
-  const [editNote, setEditNote] = useState("");
-  const [savingNote, setSavingNote] = useState(false);
 
   useEffect(() => {
     async function fetchLog() {
@@ -63,18 +60,17 @@ export default function WorkoutLogDetailPage({
             set_number: set.set_number,
             weight: set.weight,
             reps: set.reps,
-            rpe: set.rpe,
+            time: set.time,
             created_at: set.created_at,
             isEditing: false,
             editWeight: set.weight,
             editReps: set.reps,
-            editRpe: set.rpe,
+            editTime: set.time,
             isNew: isIncomplete, // 0이면 미완료로 표시
           };
         });
-        
+
         setEditableSets(allSets);
-        setEditNote(data.note || "");
       }
       setLoading(false);
     }
@@ -130,9 +126,9 @@ export default function WorkoutLogDetailPage({
     // 기존 세트 업데이트
     const result = await updateWorkoutSet(
       setId,
-      targetSet.editWeight || 0,
-      targetSet.editReps || 0,
-      targetSet.editRpe || undefined
+      targetSet.editWeight || null,
+      targetSet.editReps || null,
+      targetSet.editTime || null
     );
 
     if (result) {
@@ -143,16 +139,16 @@ export default function WorkoutLogDetailPage({
             ? {
                 id: result.id,
                 session_id: result.session_id,
-                exercise_name: result.exercise_name,
+                exercise_name: result.exercise_name || '',
                 set_number: result.set_number,
                 weight: result.weight,
                 reps: result.reps,
-                rpe: result.rpe,
+                time: result.time,
                 created_at: result.created_at,
                 isEditing: false,
                 editWeight: result.weight,
                 editReps: result.reps,
-                editRpe: result.rpe,
+                editTime: result.time,
                 isNew: isStillIncomplete,
               }
             : set
@@ -173,24 +169,11 @@ export default function WorkoutLogDetailPage({
               isEditing: false,
               editWeight: set.weight,
               editReps: set.reps,
-              editRpe: set.rpe,
+              editTime: set.time,
             }
           : set
       )
     );
-  };
-
-  // 노트 저장
-  const handleNoteSave = async () => {
-    setSavingNote(true);
-    const result = await updateSessionNote(resolvedParams.id, editNote);
-    if (result) {
-      setLog((prev) => (prev ? { ...prev, note: editNote } : null));
-      setIsEditingNote(false);
-    } else {
-      alert("노트 저장 중 오류가 발생했습니다.");
-    }
-    setSavingNote(false);
   };
 
   if (loading) {
@@ -399,11 +382,6 @@ export default function WorkoutLogDetailPage({
                             ) : (
                               <span className="font-medium text-slate-800">
                                 {set.weight}kg × {set.reps}회
-                                {set.rpe && (
-                                  <span className="text-slate-500 ml-1">
-                                    (RPE {set.rpe})
-                                  </span>
-                                )}
                               </span>
                             )}
                           </div>
@@ -423,62 +401,6 @@ export default function WorkoutLogDetailPage({
             </Card>
           ))}
         </div>
-
-        {/* 노트 섹션 */}
-        <Card padding="sm">
-          <div className="flex items-center justify-between mb-2">
-            <h3 className="font-bold text-slate-800">메모</h3>
-            {!isEditingNote && (
-              <Button
-                onClick={() => setIsEditingNote(true)}
-                variant="ghost"
-                size="sm"
-                className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50"
-              >
-                <Edit2 className="w-4 h-4" />
-              </Button>
-            )}
-          </div>
-          {isEditingNote ? (
-            <div className="space-y-2">
-              <textarea
-                value={editNote}
-                onChange={(e) => setEditNote(e.target.value)}
-                rows={3}
-                placeholder="오늘 운동에 대한 메모를 남겨보세요..."
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm resize-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              />
-              <div className="flex justify-end gap-2">
-                <Button
-                  onClick={() => {
-                    setIsEditingNote(false);
-                    setEditNote(log.note || "");
-                  }}
-                  variant="secondary"
-                  size="sm"
-                  className="flex items-center gap-1"
-                >
-                  <X className="w-4 h-4" />
-                  취소
-                </Button>
-                <Button
-                  onClick={handleNoteSave}
-                  isLoading={savingNote}
-                  variant="primary"
-                  size="sm"
-                  className="flex items-center gap-1"
-                >
-                  <Save className="w-4 h-4" />
-                  저장
-                </Button>
-              </div>
-            </div>
-          ) : (
-            <p className="text-sm text-slate-600">
-              {log.note || "메모가 없습니다."}
-            </p>
-          )}
-        </Card>
       </div>
     </div>
   );

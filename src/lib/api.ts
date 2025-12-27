@@ -62,7 +62,7 @@ export async function getProgramById(id: string): Promise<ProgramWithExercises |
 
   const { data: exercises, error: exercisesError } = await supabase
     .from('program_exercises')
-    .select('id, program_id, exercise_id, order, target_sets, target_reps, target_weight, target_time, rest_seconds, intention, created_at, exercises ( name, target_part, record_type )')
+    .select('id, program_id, exercise_id, order, target_sets, target_reps, target_weight, target_time, rest_seconds, created_at, exercises ( name, target_part, record_type )')
     .eq('program_id', id)
     .order('order', { ascending: true });
 
@@ -119,15 +119,16 @@ export async function createWorkoutSession(programId: string) {
 // 운동 세트 기록 저장
 export async function saveWorkoutSet(
   sessionId: string,
+  exerciseId: string,
   exerciseName: string,
   setNumber: number,
-  weight: number,
-  reps: number,
-  rpe?: number,
+  weight: number | null,
+  reps: number | null,
+  time: number | null,
   note?: string
 ) {
   const supabase = createClient();
-  
+
   // 인증 확인
   const { data: { user }, error: authError } = await supabase.auth.getUser();
   if (authError || !user) {
@@ -136,18 +137,15 @@ export async function saveWorkoutSet(
   }
 
   const insertData: any = {
-    user_id: user.id,
     session_id: sessionId,
+    exercise_id: exerciseId,
     exercise_name: exerciseName,
     set_number: setNumber,
     weight,
     reps,
-    rpe,
+    time,
+    note: note || null,
   };
-  
-  if (note) {
-    insertData.note = note;
-  }
 
   const { data, error } = await supabase
     .from('workout_sets')
@@ -311,7 +309,9 @@ export async function getDashboardData() {
 
   // 4. 총 볼륨 계산 (weight * reps)
   const totalVolume = sets?.reduce((acc, set) => {
-    return acc + (set.weight || 0) * (set.reps || 0);
+    const weight = set.weight || 0;
+    const reps = set.reps || 0;
+    return acc + weight * reps;
   }, 0) || 0;
 
   return {
@@ -419,9 +419,9 @@ export async function deleteWorkoutSession(sessionId: string) {
 // 운동 세트 수정
 export async function updateWorkoutSet(
   setId: string,
-  weight: number,
-  reps: number,
-  rpe?: number
+  weight: number | null,
+  reps: number | null,
+  time: number | null
 ) {
   const supabase = createClient();
   const { data, error } = await supabase
@@ -429,7 +429,7 @@ export async function updateWorkoutSet(
     .update({
       weight,
       reps,
-      rpe,
+      time,
     })
     .eq('id', setId)
     .select()
@@ -437,24 +437,6 @@ export async function updateWorkoutSet(
 
   if (error) {
     console.error('Error updating workout set:', error);
-    return null;
-  }
-
-  return data;
-}
-
-// 세션 노트 수정
-export async function updateSessionNote(sessionId: string, note: string) {
-  const supabase = createClient();
-  const { data, error } = await supabase
-    .from('workout_sessions')
-    .update({ note })
-    .eq('id', sessionId)
-    .select()
-    .single();
-
-  if (error) {
-    console.error('Error updating session note:', error);
     return null;
   }
 

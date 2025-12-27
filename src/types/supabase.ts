@@ -12,8 +12,69 @@ export type Database = {
   __InternalSupabase: {
     PostgrestVersion: "13.0.5"
   }
+  graphql_public: {
+    Tables: {
+      [_ in never]: never
+    }
+    Views: {
+      [_ in never]: never
+    }
+    Functions: {
+      graphql: {
+        Args: {
+          extensions?: Json
+          operationName?: string
+          query?: string
+          variables?: Json
+        }
+        Returns: Json
+      }
+    }
+    Enums: {
+      [_ in never]: never
+    }
+    CompositeTypes: {
+      [_ in never]: never
+    }
+  }
   public: {
     Tables: {
+      exercises: {
+        Row: {
+          aliases: string[] | null
+          created_at: string | null
+          description: string | null
+          effects: string | null
+          id: string
+          name: string
+          record_type: Database["public"]["Enums"]["exercise_type"] | null
+          target_part: Database["public"]["Enums"]["exercise_part"]
+          user_id: string | null
+        }
+        Insert: {
+          aliases?: string[] | null
+          created_at?: string | null
+          description?: string | null
+          effects?: string | null
+          id?: string
+          name: string
+          record_type?: Database["public"]["Enums"]["exercise_type"] | null
+          target_part: Database["public"]["Enums"]["exercise_part"]
+          user_id?: string | null
+        }
+        Update: {
+          aliases?: string[] | null
+          created_at?: string | null
+          description?: string | null
+          effects?: string | null
+          id?: string
+          name?: string
+          record_type?: Database["public"]["Enums"]["exercise_type"] | null
+          target_part?: Database["public"]["Enums"]["exercise_part"]
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           avatar_url: string | null
@@ -37,45 +98,49 @@ export type Database = {
       }
       program_exercises: {
         Row: {
-          created_at: string
+          created_at: string | null
+          exercise_id: string
           id: string
-          intention: string | null
-          name: string
-          note: string | null
-          order: number | null
+          order: number
           program_id: string
           rest_seconds: number | null
-          target_reps: number
-          target_sets: number
-          user_id: string | null
+          target_reps: number | null
+          target_sets: number | null
+          target_time: number | null
+          target_weight: number | null
         }
         Insert: {
-          created_at?: string
+          created_at?: string | null
+          exercise_id: string
           id?: string
-          intention?: string | null
-          name: string
-          note?: string | null
-          order?: number | null
+          order?: number
           program_id: string
           rest_seconds?: number | null
-          target_reps: number
-          target_sets: number
-          user_id?: string | null
+          target_reps?: number | null
+          target_sets?: number | null
+          target_time?: number | null
+          target_weight?: number | null
         }
         Update: {
-          created_at?: string
+          created_at?: string | null
+          exercise_id?: string
           id?: string
-          intention?: string | null
-          name?: string
-          note?: string | null
-          order?: number | null
+          order?: number
           program_id?: string
           rest_seconds?: number | null
-          target_reps?: number
-          target_sets?: number
-          user_id?: string | null
+          target_reps?: number | null
+          target_sets?: number | null
+          target_time?: number | null
+          target_weight?: number | null
         }
         Relationships: [
+          {
+            foreignKeyName: "program_exercises_exercise_id_fkey"
+            columns: ["exercise_id"]
+            isOneToOne: false
+            referencedRelation: "exercises"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "program_exercises_program_id_fkey"
             columns: ["program_id"]
@@ -91,6 +156,7 @@ export type Database = {
           description: string | null
           id: string
           is_archived: boolean | null
+          rpe: number | null
           title: string
           user_id: string | null
         }
@@ -99,6 +165,7 @@ export type Database = {
           description?: string | null
           id?: string
           is_archived?: boolean | null
+          rpe?: number | null
           title: string
           user_id?: string | null
         }
@@ -107,6 +174,7 @@ export type Database = {
           description?: string | null
           id?: string
           is_archived?: boolean | null
+          rpe?: number | null
           title?: string
           user_id?: string | null
         }
@@ -115,24 +183,24 @@ export type Database = {
       workout_sessions: {
         Row: {
           ended_at: string | null
+          exercise_id: string | null
           id: string
-          note: string | null
           program_id: string | null
           started_at: string
           user_id: string | null
         }
         Insert: {
           ended_at?: string | null
+          exercise_id?: string | null
           id?: string
-          note?: string | null
           program_id?: string | null
           started_at?: string
           user_id?: string | null
         }
         Update: {
           ended_at?: string | null
+          exercise_id?: string | null
           id?: string
-          note?: string | null
           program_id?: string | null
           started_at?: string
           user_id?: string | null
@@ -149,39 +217,46 @@ export type Database = {
       }
       workout_sets: {
         Row: {
-          created_at: string
-          exercise_name: string
+          created_at: string | null
+          exercise_id: string
           id: string
-          reps: number
-          rpe: number | null
+          note: string | null
+          reps: number | null
           session_id: string
           set_number: number
-          user_id: string | null
-          weight: number
+          time: number | null
+          weight: number | null
         }
         Insert: {
-          created_at?: string
-          exercise_name: string
+          created_at?: string | null
+          exercise_id: string
           id?: string
-          reps: number
-          rpe?: number | null
+          note?: string | null
+          reps?: number | null
           session_id: string
           set_number: number
-          user_id?: string | null
-          weight: number
+          time?: number | null
+          weight?: number | null
         }
         Update: {
-          created_at?: string
-          exercise_name?: string
+          created_at?: string | null
+          exercise_id?: string
           id?: string
-          reps?: number
-          rpe?: number | null
+          note?: string | null
+          reps?: number | null
           session_id?: string
           set_number?: number
-          user_id?: string | null
-          weight?: number
+          time?: number | null
+          weight?: number | null
         }
         Relationships: [
+          {
+            foreignKeyName: "workout_sets_exercise_id_fkey"
+            columns: ["exercise_id"]
+            isOneToOne: false
+            referencedRelation: "exercises"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "workout_sets_session_id_fkey"
             columns: ["session_id"]
@@ -199,7 +274,20 @@ export type Database = {
       [_ in never]: never
     }
     Enums: {
-      [_ in never]: never
+      exercise_part:
+        | "chest"
+        | "back"
+        | "shoulders"
+        | "biceps"
+        | "triceps"
+        | "quads"
+        | "glutes_hams"
+        | "calves"
+        | "abs"
+        | "cardio"
+        | "full_body"
+        | "stretching"
+      exercise_type: "weight_reps" | "reps_only" | "time"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -325,7 +413,26 @@ export type CompositeTypes<
     : never
 
 export const Constants = {
-  public: {
+  graphql_public: {
     Enums: {},
+  },
+  public: {
+    Enums: {
+      exercise_part: [
+        "chest",
+        "back",
+        "shoulders",
+        "biceps",
+        "triceps",
+        "quads",
+        "glutes_hams",
+        "calves",
+        "abs",
+        "cardio",
+        "full_body",
+        "stretching",
+      ],
+      exercise_type: ["weight_reps", "reps_only", "time"],
+    },
   },
 } as const
