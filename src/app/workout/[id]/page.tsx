@@ -101,9 +101,14 @@ export default function WorkoutDetailPage({ params }: Props) {
 
   // 다음 운동 버튼 클릭 핸들러
   const handleNextButtonClick = () => {
-    if (session.actions.hasIncompleteSets()) {
+    if (session.actions.isCurrentValid()) {
+      // 완료된 세트가 있으면 바로 넘어감
+      session.actions.moveToNextExercise();
+    } else if (session.actions.hasIncompleteSets()) {
+      // 완료된 세트가 없고 미완료 세트가 있으면 팝업
       setShowSkipConfirm(true);
     } else {
+      // 완료된 세트도 없고 미완료 세트도 없으면 바로 넘어감
       session.actions.moveToNextExercise();
     }
   };
@@ -408,7 +413,7 @@ export default function WorkoutDetailPage({ params }: Props) {
           <div className="max-w-md mx-auto">
             <Button
               onClick={handleNextButtonClick}
-              disabled={!session.actions.isCurrentValid()}
+              disabled={false}
               isLoading={session.isSaving}
               fullWidth
               size="lg"
