@@ -58,6 +58,19 @@ export function formatSeconds(seconds: number): string {
   return `${mins}:${secs.toString().padStart(2, '0')}`;
 }
 
+// 초를 읽기 좋은 형식으로 변환 (예: 90초 → 1분30초)
+export function formatDurationSeconds(seconds: number | null | undefined): string {
+  if (seconds == null) return '0분';
+  if (seconds === 0) return '0초';
+
+  const mins = Math.floor(seconds / 60);
+  const secs = seconds % 60;
+
+  if (mins === 0) return `${secs}초`;
+  if (secs === 0) return `${mins}분`;
+  return `${mins}분${secs}초`;
+}
+
 // 운동 지속 시간 계산
 export function calculateDuration(startedAt: string, endedAt?: string | null): string {
   if (!endedAt) return "진행 중";

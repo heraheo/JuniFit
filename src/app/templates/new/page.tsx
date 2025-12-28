@@ -11,6 +11,7 @@ import Input from "@/components/ui/Input";
 import { Modal } from "@/components/ui/Modal";
 import { Card } from "@/components/ui/Card";
 import ExerciseSelector from "@/components/ExerciseSelector";
+import TimeInput from "@/components/ui/TimeInput";
 import type { ExerciseMeta } from "@/constants/exercise";
 
 const toExerciseMeta = (exercise: ProgramExerciseForm): ExerciseMeta | null => {
@@ -395,17 +396,15 @@ export default function Page() {
 
               {ex.recordType === "time" && (
                 <div className="mb-3">
-                  <Input
-                    label="목표 시간(초)"
-                    type="text"
-                    inputMode="numeric"
+                  <TimeInput
+                    label="목표 시간"
                     value={ex.targetTime}
-                    onChange={(e) => {
-                      const val = actions.handleNumericInput(e.target.value, 'targetTime', ex.id);
-                      actions.updateExercise(ex.id, (prev) => ({ ...prev, targetTime: val }));
+                    onChange={(seconds) => {
+                      actions.updateExercise(ex.id, (prev) => ({ ...prev, targetTime: seconds }));
                     }}
-                    placeholder="초"
                     error={validation.inputErrors[`${ex.id}-targetTime`]}
+                    placeholder="0"
+                    disabled={false}
                     className="text-sm"
                   />
                 </div>

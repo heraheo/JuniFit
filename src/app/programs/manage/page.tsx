@@ -8,6 +8,7 @@ import type { Program, ProgramExercise } from "@/types/database";
 import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
 import { EmptyState } from "@/components/ui/EmptyState";
 import Button from "@/components/ui/Button";
+import { formatDurationSeconds } from "@/lib/utils";
 
 type ProgramWithExercises = Program & {
   exercises?: ProgramExercise[];
@@ -195,25 +196,25 @@ export default function ProgramsManagePage() {
                                     {exercise.name}
                                   </h4>
                                   <div className="flex items-center gap-2 mt-1 text-xs text-slate-500">
-                                    <span>{exercise.target_sets}세트</span>
-                                    {exercise.target_reps && (
-                                      <>
-                                        <span>×</span>
-                                        <span>{exercise.target_reps}회</span>
-                                      </>
-                                    )}
-                                    {exercise.target_time && (
-                                      <>
-                                        <span>×</span>
-                                        <span>{exercise.target_time}초</span>
-                                      </>
-                                    )}
-                                    {exercise.rest_seconds && (
-                                      <>
-                                        <span className="text-slate-300">|</span>
-                                        <span>휴식 {exercise.rest_seconds}초</span>
-                                      </>
-                                    )}
+                                     <span>{exercise.target_sets}세트</span>
+                                     {exercise.target_reps && (
+                                       <>
+                                         <span>×</span>
+                                         <span>{exercise.target_reps}회</span>
+                                       </>
+                                     )}
+                                     {exercise.target_time && (
+                                       <>
+                                         <span>×</span>
+                                         <span>{formatDurationSeconds(exercise.target_time)}</span>
+                                       </>
+                                     )}
+                                     {exercise.rest_seconds && (
+                                       <>
+                                         <span className="text-slate-300">|</span>
+                                         <span>휴식 {exercise.rest_seconds}초</span>
+                                       </>
+                                     )}
                                   </div>
                                 </div>
                               </div>

@@ -10,6 +10,7 @@ import { Modal } from "@/components/ui/Modal";
 import { Card } from "@/components/ui/Card";
 import { createClient } from "@/lib/supabase/client";
 import ExerciseSelector from "@/components/ExerciseSelector";
+import TimeInput from "@/components/ui/TimeInput";
 import type { ExerciseMeta } from "@/constants/exercise";
 import { validateNumericInput, validateProgramForm, type ProgramExerciseForm } from "@/lib/validation";
 
@@ -518,17 +519,15 @@ export default function ProgramEditPage() {
 
               {ex.recordType === "time" && (
                 <div className="mb-3">
-                  <Input
-                    label="목표 시간(초)"
-                    type="text"
-                    inputMode="numeric"
+                  <TimeInput
+                    label="목표 시간"
                     value={ex.targetTime}
-                    onChange={(e) => {
-                      const val = handleNumericInput(e.target.value, 'targetTime', ex.id);
-                      updateExercise(ex.id, (prev) => ({ ...prev, targetTime: val }));
+                    onChange={(seconds) => {
+                      updateExercise(ex.id, (prev) => ({ ...prev, targetTime: seconds }));
                     }}
-                    placeholder="초"
                     error={inputErrors[`${ex.id}-targetTime`]}
+                    placeholder="0"
+                    disabled={false}
                     className="text-sm"
                   />
                 </div>

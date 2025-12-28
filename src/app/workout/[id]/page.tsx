@@ -6,7 +6,7 @@ import Link from "next/link";
 import { ArrowLeft, Check, Timer, Lock, SkipForward } from "lucide-react";
 import { getProgramById, createWorkoutSession } from "@/lib/api";
 import type { ProgramWithExercises } from "@/lib/api";
-import { formatSeconds } from "@/lib/utils";
+import { formatSeconds, formatDurationSeconds } from "@/lib/utils";
 import { useRestTimer } from "@/hooks/useRestTimer";
 import { useWorkoutSession } from "@/hooks/useWorkoutSession";
 import Button from "@/components/ui/Button";
@@ -188,7 +188,7 @@ export default function WorkoutDetailPage({ params }: Props) {
                         <div className="flex items-center gap-2 mt-0.5">
                           {exercise.record_type === 'time' ? (
                             <span className="text-xs text-slate-500">
-                              {exercise.target_sets}세트 × {exercise.target_time}초
+                              {exercise.target_sets}세트 × {formatDurationSeconds(exercise.target_time)}
                             </span>
                           ) : (
                             <span className="text-xs text-slate-500">
