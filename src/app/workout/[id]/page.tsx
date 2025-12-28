@@ -324,31 +324,33 @@ export default function WorkoutDetailPage({ params }: Props) {
                               </div>
                             )}
 
-                            <button
-                              onClick={() => session.actions.toggleSetComplete(exercise.id, setIndex)}
-                              className={`p-2 rounded-lg transition-all ${
-                                isSetCompleted
-                                  ? 'bg-green-500 hover:bg-green-600'
-                                  : 'bg-white border-2 border-blue-500 hover:bg-blue-50'
-                              }`}
-                              title={isSetCompleted ? '완료 취소' : '세트 완료'}
-                            >
-                              {isSetCompleted ? (
-                                <Check className="w-5 h-5 text-white" />
-                              ) : (
-                                <Check className="w-5 h-5 text-blue-500" />
-                              )}
-                            </button>
-
-                            {!isSetCompleted && (
+                            <div className="flex gap-2">
                               <button
-                                onClick={() => session.actions.skipSet(exercise.id, setIndex)}
-                                className="p-2 rounded-lg transition-all bg-white border-2 border-slate-300 hover:bg-slate-50 hover:border-slate-400"
-                                title="세트 건너뛰기"
+                                onClick={() => session.actions.toggleSetComplete(exercise.id, setIndex)}
+                                className={`p-2 rounded-lg transition-all ${
+                                  isSetCompleted
+                                    ? 'bg-green-500 hover:bg-green-600'
+                                    : 'bg-white border-2 border-blue-500 hover:bg-blue-50'
+                                }`}
+                                title={isSetCompleted ? '완료 취소' : '세트 완료'}
                               >
-                                <SkipForward className="w-5 h-5 text-slate-500" />
+                                {isSetCompleted ? (
+                                  <Check className="w-5 h-5 text-white" />
+                                ) : (
+                                  <Check className="w-5 h-5 text-blue-500" />
+                                )}
                               </button>
-                            )}
+
+                              {!isSetCompleted && (
+                                <button
+                                  onClick={() => session.actions.skipSet(exercise.id, setIndex)}
+                                  className="p-2 rounded-lg transition-all bg-white border-2 border-slate-300 hover:bg-slate-50 hover:border-slate-400"
+                                  title="세트 건너뛰기"
+                                >
+                                  <SkipForward className="w-5 h-5 text-slate-500" />
+                                </button>
+                              )}
+                            </div>
                           </div>
                         );
                       })}
