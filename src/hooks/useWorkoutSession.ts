@@ -40,6 +40,7 @@ interface UseWorkoutSessionReturn {
   actions: {
     updateInput: (exerciseId: string, setIndex: number, field: keyof Omit<SetInput, 'completed'>, value: string) => void;
     toggleSetComplete: (exerciseId: string, setIndex: number) => void;
+    skipSet: (exerciseId: string, setIndex: number) => void;
     updateNote: (exerciseId: string, note: string) => void;
     isCurrentValid: () => boolean;
     moveToNextExercise: () => void;
@@ -170,6 +171,7 @@ export function useWorkoutSession({
     }
 
     const newCompletedState = !currentSet.completed;
+    const isLastSet = setIndex === (exercise.target_sets || 1) - 1;
 
     setInputs(prev => ({
       ...prev,
@@ -178,8 +180,48 @@ export function useWorkoutSession({
       )
     }));
 
-    // 세트를 완료(체크)하는 경우에만 타이머 시작
-    if (newCompletedState && exercise.rest_seconds) {
+    // 세트를 완료(체크)하고, 마지막 세트가 아닌 경우에만 타이머 시작
+    if (newCompletedState && !isLastSet && exercise.rest_seconds) {
+      onSetComplete(exercise.rest_seconds);
+    }
+  }, [program, inputs, onSetComplete]);
+
+  // 세트 건너뛰기
+  const skipSet = useCallback((exerciseId: string, setIndex: number) => {
+    if (!program) return;
+
+    const exercise = program.exercises.find(ex => ex.id === exerciseId);
+    if (!exercise) return;
+
+    const currentSet = inputs[exerciseId]?.[setIndex];
+    if (!currentSet) return;
+
+    const recordType = exercise.record_type;
+
+    // 건너뛰는 세트는 0으로 저장하고 완료 처리
+    let weight = null;
+    let reps = null;
+    let time = null;
+
+    if (recordType === 'weight_reps') {
+      weight = 0;
+      reps = 0;
+    } else if (recordType === 'reps_only') {
+      reps = 0;
+    } else if (recordType === 'time') {
+      time = 0;
+    }
+
+    setInputs(prev => ({
+      ...prev,
+      [exerciseId]: prev[exerciseId].map((set, idx) =>
+        idx === setIndex ? { ...set, completed: true, weight: String(weight || ''), reps: String(reps || ''), time: String(time || '') } : set
+      )
+    }));
+
+    // 다음 세트가 있으면 마지막 세트가 아니면 타이머 시작
+    const isLastSet = setIndex === (exercise.target_sets || 1) - 1;
+    if (!isLastSet && exercise.rest_seconds) {
       onSetComplete(exercise.rest_seconds);
     }
   }, [program, inputs, onSetComplete]);
@@ -267,6 +309,8 @@ export function useWorkoutSession({
             const reps = set.completed && (recordType === 'weight_reps' || recordType === 'reps_only') ? (parseInt(set.reps) || 0) : null;
             const time = set.completed && (recordType === 'time') ? (parseFloat(set.time) || 0) : null;
 
+            console.log(`Saving set ${i + 1} for ${exercise.name}:`, { weight, reps, time, exerciseId: exercise.exercise_id, sessionId });
+
             const result = await saveWorkoutSet(
               sessionId,
               exercise.exercise_id,
@@ -275,7 +319,7 @@ export function useWorkoutSession({
               weight,
               reps,
               time,
-              exerciseNote || undefined
+              exerciseNote || null
             );
 
             if (!result) {
@@ -335,6 +379,7 @@ export function useWorkoutSession({
     actions: {
       updateInput,
       toggleSetComplete,
+      skipSet,
       updateNote,
       isCurrentValid,
       moveToNextExercise,

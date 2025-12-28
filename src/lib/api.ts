@@ -125,27 +125,21 @@ export async function saveWorkoutSet(
   weight: number | null,
   reps: number | null,
   time: number | null,
-  note?: string
+  note?: string | null
 ) {
   const supabase = createClient();
 
-  // 인증 확인
-  const { data: { user }, error: authError } = await supabase.auth.getUser();
-  if (authError || !user) {
-    console.error('Authentication required for saving workout set');
-    return null;
-  }
-
-  const insertData: any = {
+  const insertData = {
     session_id: sessionId,
     exercise_id: exerciseId,
-    exercise_name: exerciseName,
     set_number: setNumber,
     weight,
     reps,
     time,
-    note: note || null,
+    note: note ?? null,
   };
+
+  console.log('Saving workout set:', insertData);
 
   const { data, error } = await supabase
     .from('workout_sets')
@@ -216,7 +210,7 @@ export async function getWorkoutLogs(limit?: number, offset: number = 0) {
     programIds.length > 0
       ? supabase
           .from('program_exercises')
-          .select('program_id, order, exercises ( name )')
+          .select('program_id, exercise_id, order, exercises ( name )')
           .in('program_id', programIds)
       : Promise.resolve({ data: [] }),
     programIds.length > 0 ? supabase.from('programs').select('id, title').in('id', programIds) : Promise.resolve({ data: [] }),
@@ -229,14 +223,11 @@ export async function getWorkoutLogs(limit?: number, offset: number = 0) {
     setsBySession[set.session_id].push(set);
   });
 
-  // 프로그램별 운동 순서 맵
+  // 프로그램별 운동 순서 맵 (exercise_id를 키로 사용)
   const exerciseOrderByProgram: Record<string, Record<string, number>> = {};
   exercisesResult.data?.forEach((ex: any) => {
     if (!exerciseOrderByProgram[ex.program_id]) exerciseOrderByProgram[ex.program_id] = {};
-    const meta = Array.isArray(ex.exercises) ? ex.exercises[0] : ex.exercises;
-    const exerciseName = meta?.name;
-    if (!exerciseName) return;
-    exerciseOrderByProgram[ex.program_id][exerciseName] = ex.order || 999;
+    exerciseOrderByProgram[ex.program_id][ex.exercise_id] = ex.order || 999;
   });
 
   // 프로그램 제목 맵
@@ -252,8 +243,8 @@ export async function getWorkoutLogs(limit?: number, offset: number = 0) {
 
     // 세트를 운동 순서대로 정렬
     const sortedSets = sets.sort((a, b) => {
-      const orderA = exerciseOrderMap[a.exercise_name] || 999;
-      const orderB = exerciseOrderMap[b.exercise_name] || 999;
+      const orderA = exerciseOrderMap[a.exercise_id] || 999;
+      const orderB = exerciseOrderMap[b.exercise_id] || 999;
       if (orderA !== orderB) return orderA - orderB;
       return a.set_number - b.set_number;
     });
@@ -354,17 +345,14 @@ export async function getWorkoutLogById(sessionId: string) {
     const [exercisesResult, programResult] = await Promise.all([
       supabase
         .from('program_exercises')
-        .select('order, exercises ( name )')
+        .select('exercise_id, order, exercises ( name )')
         .eq('program_id', session.program_id),
       supabase.from('programs').select('title').eq('id', session.program_id).single(),
     ]);
 
     if (exercisesResult.data) {
       exercisesResult.data.forEach((ex: any) => {
-        const meta = Array.isArray(ex.exercises) ? ex.exercises[0] : ex.exercises;
-        const exerciseName = meta?.name;
-        if (!exerciseName) return;
-        exerciseOrderMap[exerciseName] = ex.order || 999;
+        exerciseOrderMap[ex.exercise_id] = ex.order || 999;
       });
     }
 
@@ -375,8 +363,8 @@ export async function getWorkoutLogById(sessionId: string) {
 
   // 세트를 운동 순서대로 정렬
   const sortedSets = sets?.sort((a, b) => {
-    const orderA = exerciseOrderMap[a.exercise_name] || 999;
-    const orderB = exerciseOrderMap[b.exercise_name] || 999;
+    const orderA = exerciseOrderMap[a.exercise_id] || 999;
+    const orderB = exerciseOrderMap[b.exercise_id] || 999;
     if (orderA !== orderB) return orderA - orderB;
     return a.set_number - b.set_number;
   }) || [];

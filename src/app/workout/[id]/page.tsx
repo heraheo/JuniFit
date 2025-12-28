@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft, Check, Timer, Lock } from "lucide-react";
+import { ArrowLeft, Check, Timer, Lock, SkipForward } from "lucide-react";
 import { getProgramById, createWorkoutSession } from "@/lib/api";
 import type { ProgramWithExercises } from "@/lib/api";
 import { formatSeconds } from "@/lib/utils";
@@ -339,6 +339,16 @@ export default function WorkoutDetailPage({ params }: Props) {
                                 <Check className="w-5 h-5 text-blue-500" />
                               )}
                             </button>
+
+                            {!isSetCompleted && (
+                              <button
+                                onClick={() => session.actions.skipSet(exercise.id, setIndex)}
+                                className="p-2 rounded-lg transition-all bg-white border-2 border-slate-300 hover:bg-slate-50 hover:border-slate-400"
+                                title="세트 건너뛰기"
+                              >
+                                <SkipForward className="w-5 h-5 text-slate-500" />
+                              </button>
+                            )}
                           </div>
                         );
                       })}
