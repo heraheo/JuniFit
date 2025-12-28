@@ -23,7 +23,8 @@ export default function WorkoutDetailPage({ params }: Props) {
   const [program, setProgram] = useState<ProgramWithExercises | null>(null);
   const [loading, setLoading] = useState(true);
   const [sessionId, setSessionId] = useState<string | null>(null);
-  
+  const [showSkipConfirm, setShowSkipConfirm] = useState(false);
+
   // 운동 카드 참조 (스크롤용)
   const exerciseRefs = useRef<Record<string, HTMLDivElement | null>>({});
   
@@ -97,6 +98,22 @@ export default function WorkoutDetailPage({ params }: Props) {
   const progressPercentage = ((session.currentIndex) / program.exercises.length) * 100;
   const currentExercise = program.exercises[session.currentIndex];
   const isLastExercise = session.currentIndex === program.exercises.length - 1;
+
+  // 다음 운동 버튼 클릭 핸들러
+  const handleNextButtonClick = () => {
+    if (session.actions.hasIncompleteSets()) {
+      setShowSkipConfirm(true);
+    } else {
+      session.actions.moveToNextExercise();
+    }
+  };
+
+  // 미완료 세트 확인 및 다음 운동으로 이동
+  const confirmSkipAndMoveNext = () => {
+    session.actions.completeRemainingSets();
+    session.actions.moveToNextExercise();
+    setShowSkipConfirm(false);
+  };
 
   return (
     <div className="min-h-screen px-4 pt-6 pb-32 bg-gray-50">
@@ -324,34 +341,24 @@ export default function WorkoutDetailPage({ params }: Props) {
                               </div>
                             )}
 
-                            <div className="flex gap-2">
-                              <button
-                                onClick={() => session.actions.toggleSetComplete(exercise.id, setIndex)}
-                                className={`p-2 rounded-lg transition-all ${
-                                  isSetCompleted
-                                    ? 'bg-green-500 hover:bg-green-600'
-                                    : 'bg-white border-2 border-blue-500 hover:bg-blue-50'
-                                }`}
-                                title={isSetCompleted ? '완료 취소' : '세트 완료'}
-                              >
-                                {isSetCompleted ? (
-                                  <Check className="w-5 h-5 text-white" />
-                                ) : (
-                                  <Check className="w-5 h-5 text-blue-500" />
-                                )}
-                              </button>
-
-                              {!isSetCompleted && (
-                                <button
-                                  onClick={() => session.actions.skipSet(exercise.id, setIndex)}
-                                  className="p-2 rounded-lg transition-all bg-white border-2 border-slate-300 hover:bg-slate-50 hover:border-slate-400"
-                                  title="세트 건너뛰기"
-                                >
-                                  <SkipForward className="w-5 h-5 text-slate-500" />
-                                </button>
-                              )}
-                            </div>
-                          </div>
+                             <div className="flex gap-2">
+                               <button
+                                 onClick={() => session.actions.toggleSetComplete(exercise.id, setIndex)}
+                                 className={`p-2 rounded-lg transition-all ${
+                                   isSetCompleted
+                                     ? 'bg-green-500 hover:bg-green-600'
+                                     : 'bg-white border-2 border-blue-500 hover:bg-blue-50'
+                                 }`}
+                                 title={isSetCompleted ? '완료 취소' : '세트 완료'}
+                               >
+                                 {isSetCompleted ? (
+                                   <Check className="w-5 h-5 text-white" />
+                                 ) : (
+                                   <Check className="w-5 h-5 text-blue-500" />
+                                 )}
+                               </button>
+                             </div>
+                           </div>
                         );
                       })}
                     </div>
@@ -400,13 +407,13 @@ export default function WorkoutDetailPage({ params }: Props) {
         <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 p-4 shadow-lg">
           <div className="max-w-md mx-auto">
             <Button
-              onClick={session.actions.moveToNextExercise}
+              onClick={handleNextButtonClick}
               disabled={!session.actions.isCurrentValid()}
               isLoading={session.isSaving}
               fullWidth
               size="lg"
-              className={isLastExercise 
-                ? "bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 shadow-lg" 
+              className={isLastExercise
+                ? "bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 shadow-lg"
                 : "bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 shadow-lg"
               }
             >
@@ -470,6 +477,40 @@ export default function WorkoutDetailPage({ params }: Props) {
             >
               휴식 건너뛰기
             </Button>
+          </div>
+        </div>
+      )}
+
+      {/* 미완료 세트 확인 팝업 */}
+      {showSkipConfirm && (
+        <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-2xl p-8 max-w-sm w-full text-center">
+            <div className="mb-6">
+              <div className="w-16 h-16 bg-amber-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                <SkipForward className="w-8 h-8 text-amber-600" />
+              </div>
+              <h2 className="text-xl font-bold text-slate-800 mb-2">미완료된 세트가 있습니다</h2>
+              <p className="text-slate-600">
+                완료되지 않은 세트를 건너뛰고<br />
+                다음 운동으로 넘어가시겠습니까?
+              </p>
+            </div>
+
+            <div className="flex gap-3">
+              <Button
+                onClick={() => setShowSkipConfirm(false)}
+                variant="secondary"
+                fullWidth
+              >
+                취소
+              </Button>
+              <Button
+                onClick={confirmSkipAndMoveNext}
+                fullWidth
+              >
+                넘어가기
+              </Button>
+            </div>
           </div>
         </div>
       )}
