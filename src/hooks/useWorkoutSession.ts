@@ -303,32 +303,36 @@ export function useWorkoutSession({
           const exerciseInputs = inputs[exercise.id] || [];
           const exerciseNote = notes[exercise.id] || '';
 
-          // 모든 세트를 저장 (미완료 세트는 0으로)
-          for (let i = 0; i < exerciseInputs.length; i++) {
-            const set = exerciseInputs[i];
-            const recordType = exercise.record_type;
+            // 모든 세트를 저장 (미완료 세트는 0으로)
+            for (let i = 0; i < exerciseInputs.length; i++) {
+              const set = exerciseInputs[i];
+              const recordType = exercise.record_type;
 
-            const weight = set.completed && (recordType === 'weight_reps') ? (parseFloat(set.weight) || 0) : null;
-            const reps = set.completed && (recordType === 'weight_reps' || recordType === 'reps_only') ? (parseInt(set.reps) || 0) : null;
-            const time = set.completed && (recordType === 'time') ? (parseFloat(set.time) || 0) : null;
+              // 완료된 세트만 저장 (record_type에 따라 값 설정)
+              const weight = set.completed && (recordType === 'weight_reps') ? (parseFloat(set.weight) || 0) : null;
+              const reps = set.completed && (recordType === 'weight_reps' || recordType === 'reps_only') ? (parseInt(set.reps) || 0) : null;
+              const time = set.completed && (recordType === 'time') ? (parseFloat(set.time) || 0) : null;
 
-            console.log(`Saving set ${i + 1} for ${exercise.name}:`, { weight, reps, time, exerciseId: exercise.exercise_id, sessionId });
+              // 미완료 세트는 저장하지 않음 (데이터가 없으면 저장 안 함)
+              if (!set.completed) continue;
 
-            const result = await saveWorkoutSet(
-              sessionId,
-              exercise.exercise_id,
-              exercise.name,
-              i + 1,
-              weight,
-              reps,
-              time,
-              exerciseNote || null
-            );
+              console.log(`Saving set ${i + 1} for ${exercise.name}:`, { weight, reps, time, exerciseId: exercise.exercise_id, sessionId });
 
-            if (!result) {
-              throw new Error(`${exercise.name} ${i + 1}세트 저장 실패`);
+              const result = await saveWorkoutSet(
+                sessionId,
+                exercise.exercise_id,
+                exercise.name,
+                i + 1,
+                weight,
+                reps,
+                time,
+                exerciseNote || null
+              );
+
+              if (!result) {
+                throw new Error(`${exercise.name} ${i + 1}세트 저장 실패`);
+              }
             }
-          }
         }
 
         const sessionResult = await completeWorkoutSession(sessionId);

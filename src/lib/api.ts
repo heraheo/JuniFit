@@ -225,9 +225,15 @@ export async function getWorkoutLogs(limit?: number, offset: number = 0) {
 
   // 프로그램별 운동 순서 맵 (exercise_id를 키로 사용)
   const exerciseOrderByProgram: Record<string, Record<string, number>> = {};
+  const exerciseRecordTypeByProgram: Record<string, Record<string, string>> = {};
   exercisesResult.data?.forEach((ex: any) => {
     if (!exerciseOrderByProgram[ex.program_id]) exerciseOrderByProgram[ex.program_id] = {};
+    if (!exerciseRecordTypeByProgram[ex.program_id]) exerciseRecordTypeByProgram[ex.program_id] = {};
+
     exerciseOrderByProgram[ex.program_id][ex.exercise_id] = ex.order || 999;
+
+    const meta = Array.isArray(ex.exercises) ? ex.exercises[0] : ex.exercises;
+    exerciseRecordTypeByProgram[ex.program_id][ex.exercise_id] = meta?.record_type || '';
   });
 
   // 프로그램 제목 맵
@@ -240,14 +246,18 @@ export async function getWorkoutLogs(limit?: number, offset: number = 0) {
   const logsWithSets = sessions.map(session => {
     const sets = setsBySession[session.id] || [];
     const exerciseOrderMap = session.program_id ? exerciseOrderByProgram[session.program_id] || {} : {};
+    const exerciseRecordTypeMap = session.program_id ? exerciseRecordTypeByProgram[session.program_id] || {} : {};
 
-    // 세트를 운동 순서대로 정렬
+    // 세트를 운동 순서대로 정렬하며 record_type 추가
     const sortedSets = sets.sort((a, b) => {
       const orderA = exerciseOrderMap[a.exercise_id] || 999;
       const orderB = exerciseOrderMap[b.exercise_id] || 999;
       if (orderA !== orderB) return orderA - orderB;
       return a.set_number - b.set_number;
-    });
+    }).map((set) => ({
+      ...set,
+      record_type: exerciseRecordTypeMap[set.exercise_id] || '',
+    }));
 
     return {
       ...session,
@@ -339,13 +349,14 @@ export async function getWorkoutLogById(sessionId: string) {
 
   // 2단계: program_id가 있으면 프로그램 정보를 병렬로 조회
   let exerciseOrderMap: Record<string, number> = {};
+  let exerciseRecordTypeMap: Record<string, string> = {};
   let programTitle = undefined;
 
   if (session.program_id) {
     const [exercisesResult, programResult] = await Promise.all([
       supabase
         .from('program_exercises')
-        .select('exercise_id, order, exercises ( name )')
+        .select('exercise_id, order, exercises ( name, record_type )')
         .eq('program_id', session.program_id),
       supabase.from('programs').select('title').eq('id', session.program_id).single(),
     ]);
@@ -353,6 +364,8 @@ export async function getWorkoutLogById(sessionId: string) {
     if (exercisesResult.data) {
       exercisesResult.data.forEach((ex: any) => {
         exerciseOrderMap[ex.exercise_id] = ex.order || 999;
+        const meta = Array.isArray(ex.exercises) ? ex.exercises[0] : ex.exercises;
+        exerciseRecordTypeMap[ex.exercise_id] = meta?.record_type || '';
       });
     }
 
@@ -361,13 +374,16 @@ export async function getWorkoutLogById(sessionId: string) {
     }
   }
 
-  // 세트를 운동 순서대로 정렬
+  // 세트를 운동 순서대로 정렬하며 record_type 추가
   const sortedSets = sets?.sort((a, b) => {
     const orderA = exerciseOrderMap[a.exercise_id] || 999;
     const orderB = exerciseOrderMap[b.exercise_id] || 999;
     if (orderA !== orderB) return orderA - orderB;
     return a.set_number - b.set_number;
-  }) || [];
+  }).map((set) => ({
+    ...set,
+    record_type: exerciseRecordTypeMap[set.exercise_id] || '',
+  })) || [];
 
   return {
     ...session,

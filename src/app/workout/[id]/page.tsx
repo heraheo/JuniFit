@@ -207,16 +207,20 @@ export default function WorkoutDetailPage({ params }: Props) {
                         }`}>
                           {exercise.name}
                         </h3>
-                        <div className="flex items-center gap-2 mt-0.5">
-                          {exercise.record_type === 'time' ? (
-                            <span className="text-xs text-slate-500">
-                              {exercise.target_sets}세트 × {formatDurationSeconds(exercise.target_time)}
-                            </span>
-                          ) : (
-                            <span className="text-xs text-slate-500">
-                              {exercise.target_sets}세트 × {exercise.target_reps}회
-                            </span>
-                          )}
+                         <div className="flex items-center gap-2 mt-0.5">
+                           {exercise.record_type === 'time' ? (
+                             <span className="text-xs text-slate-500">
+                               {exercise.target_sets}세트 × {formatDurationSeconds(exercise.target_time)}
+                             </span>
+                           ) : exercise.record_type === 'reps_only' ? (
+                             <span className="text-xs text-slate-500">
+                               {exercise.target_sets}세트 × {exercise.target_reps}회
+                             </span>
+                           ) : (
+                             <span className="text-xs text-slate-500">
+                               {exercise.target_sets}세트 × {exercise.target_reps}회
+                             </span>
+                           )}
                           {exercise.rest_seconds && (
                             <>
                               <span className="text-xs text-slate-400">•</span>
@@ -391,7 +395,7 @@ export default function WorkoutDetailPage({ params }: Props) {
                         const recordType = exercise.record_type;
                         return (
                           <span key={idx} className="text-xs bg-green-100 text-green-800 px-2 py-1 rounded">
-                            {idx + 1}세트: {recordType === 'time' ? `${set.time}초` : recordType === 'reps_only' ? `${set.reps}회` : `${set.weight}kg × ${set.reps}회`}
+                            {idx + 1}세트: {recordType === 'time' ? formatDurationSeconds(Number(set.time)) : recordType === 'reps_only' ? `${set.reps}회` : `${set.weight}kg × ${set.reps}회`}
                           </span>
                         );
                       })}
@@ -550,9 +554,14 @@ export default function WorkoutDetailPage({ params }: Props) {
                           {completedSets.map((set, index) => (
                             <div key={index} className="flex justify-between text-sm">
                               <span className="text-slate-600">{index + 1}세트</span>
-                              <span className="text-slate-800">
-                                {recordType === 'time' ? `${set.time}초` : recordType === 'reps_only' ? `${set.reps}회` : `${set.weight}kg × ${set.reps}회`}
-                              </span>
+                               <span className="text-slate-800">
+                                 {recordType === 'time'
+                                   ? formatDurationSeconds(Number(set.time))
+                                   : recordType === 'reps_only'
+                                     ? `${set.reps}회`
+                                     : `${set.weight}kg × ${set.reps}회`
+                                 }
+                               </span>
                             </div>
                           ))}
                         </div>

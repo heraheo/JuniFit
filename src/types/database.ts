@@ -49,6 +49,8 @@ export type WorkoutSet = {
   time: number | null;
   note: string | null;
   created_at: string | null;
+  // 운동 타입 (히스토리 표시용)
+  record_type?: string;
 };
 
 // 5. 운동 기록 상세 (Workout Log Detail) - API 응답용

@@ -4,7 +4,7 @@ import { useState } from "react";
 import { Calendar, ChevronDown, ChevronRight, Trash2, Edit3, X, Save } from "lucide-react";
 import { deleteWorkoutSession, updateWorkoutSet, getWorkoutLogs } from "@/lib/api";
 import type { WorkoutSession, WorkoutSet } from "@/types/database";
-import { formatDateWithWeekday, formatTime, calculateDuration, groupSetsByExercise } from "@/lib/utils";
+import { formatDateWithWeekday, formatTime, calculateDuration, groupSetsByExercise, formatDurationSeconds } from "@/lib/utils";
 import Button from "@/components/ui/Button";
 
 type WorkoutLog = WorkoutSession & {
@@ -267,11 +267,16 @@ export function HistoryClient({ initialLogs, initialLimit = PAGE_SIZE }: History
                                 />
                                 <span className="text-slate-500">회</span>
                               </div>
-                            ) : (
-                              <span className="text-slate-800">
-                                {set.weight}kg × {set.reps}회
-                              </span>
-                            )}
+                             ) : (
+                               <span className="text-slate-800">
+                                 {set.record_type === 'time'
+                                   ? formatDurationSeconds(set.time)
+                                   : set.record_type === 'reps_only'
+                                     ? `${set.reps}회`
+                                     : `${set.weight}kg × ${set.reps}회`
+                                 }
+                               </span>
+                             )}
                           </div>
                         ))}
                       </div>
