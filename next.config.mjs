@@ -43,33 +43,13 @@ const withPWA = withPWAInit({
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  // Turbopack 최적화
-  // 빠른 HMR과 안정적인 연결을 위한 설정
-  experimental: {
-    // 기존 캐시 사용하여 빌드 속도 향상
-    turbo: {
-      resolveAlias: {
-        // 별칭 설정으로 모듈 해석 최적화
-      },
-    },
-  },
-  
-  // 개발 서버 최적화
-  webpack: (config, { isServer }) => {
-    // HMR 최적화
-    if (!isServer) {
-      config.watchOptions = {
-        poll: 1000, // 1초마다 변경 감시 (기본값보다 빠름)
-        aggregateTimeout: 300, // 변경 감지 후 300ms 대기
-      };
-    }
-    
-    return config;
-  },
+  // Turbopack 빌드 설정
+  // Next.js 16에서는 기본으로 Turbopack이 활성화됨
+  // Vercel에서는 자동으로 Turbopack 사용
 
   // 정적 리소스 최적화
   compress: true,
-  
+
   // 이미지 최적화
   images: {
     formats: ['image/webp'],
@@ -78,3 +58,4 @@ const nextConfig = {
 };
 
 export default withPWA(nextConfig);
+
