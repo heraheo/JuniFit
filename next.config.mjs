@@ -43,9 +43,8 @@ const withPWA = withPWAInit({
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  // Turbopack 빌드 설정
-  // Next.js 16에서는 기본으로 Turbopack이 활성화됨
-  // Vercel에서는 자동으로 Turbopack 사용
+  // Turbopack 빌드 설정 (Next.js 16에서 기본 활성화)
+  turbopack: {},
 
   // 정적 리소스 최적화
   compress: true,
