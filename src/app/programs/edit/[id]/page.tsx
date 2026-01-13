@@ -70,24 +70,21 @@ const stripField = <T extends Record<string, any>, K extends keyof T>(rows: T[],
 
 const isExerciseComplete = (exercise: ProgramExerciseForm) => {
   if (!exercise.exerciseId || !exercise.recordType) return false;
+
+  if (exercise.recordType === "time") {
+    return exercise.targetTime !== "" && Number(exercise.targetTime) > 0;
+  }
+
+  // weight_reps, reps_only
   if (exercise.targetSets === "" || Number(exercise.targetSets) < 1) return false;
   if (exercise.restSeconds === "" || Number(exercise.restSeconds) < 0) return false;
-
-  if (exercise.recordType === "weight_reps") {
-    return (
-      exercise.targetWeight !== "" &&
-      Number(exercise.targetWeight) > 0 &&
-      exercise.targetReps !== "" &&
-      Number(exercise.targetReps) > 0
-    );
-  }
 
   if (exercise.recordType === "reps_only") {
     return exercise.targetReps !== "" && Number(exercise.targetReps) > 0;
   }
 
-  if (exercise.recordType === "time") {
-    return exercise.targetTime !== "" && Number(exercise.targetTime) > 0;
+  if (exercise.recordType === "weight_reps") {
+    return exercise.targetReps !== "" && Number(exercise.targetReps) > 0;
   }
 
   return false;
@@ -316,7 +313,7 @@ export default function ProgramEditPage() {
           target_weight: ex.recordType === "weight_reps" ? numberOrNull(ex.targetWeight) : null,
           target_reps: (ex.recordType === "reps_only" || ex.recordType === "weight_reps") ? numberOrNull(ex.targetReps) : null,
           target_time: ex.recordType === "time" ? numberOrNull(ex.targetTime) : null,
-          rest_seconds: numberOrNull(ex.restSeconds),
+          rest_seconds: ex.recordType === "time" ? null : numberOrNull(ex.restSeconds),
         }));
 
       let exercisesError: any = null;
@@ -439,83 +436,81 @@ export default function ProgramEditPage() {
                 )}
               </div>
 
-              <div className="grid grid-cols-2 gap-3 mb-3">
-                <Input
-                  label="세트 수"
-                  type="text"
-                  inputMode="numeric"
-                  value={ex.targetSets}
-                  onChange={(e) => {
-                    const val = handleNumericInput(e.target.value, 'targetSets', ex.id);
-                    updateExercise(ex.id, (prev) => ({ ...prev, targetSets: val }));
-                  }}
-                  placeholder="세트"
-                  error={inputErrors[`${ex.id}-targetSets`]}
-                  className="text-sm"
-                />
-                <Input
-                  label="휴식 시간(초)"
-                  type="text"
-                  inputMode="numeric"
-                  value={ex.restSeconds}
-                  onChange={(e) => {
-                    const val = handleNumericInput(e.target.value, 'restSeconds', ex.id);
-                    updateExercise(ex.id, (prev) => ({ ...prev, restSeconds: val }));
-                  }}
-                  placeholder="초"
-                  error={inputErrors[`${ex.id}-restSeconds`]}
-                  className="text-sm"
-                />
-              </div>
+               {/* 세트 수 - weight_reps, reps_only만 표시 */}
+               {ex.recordType !== "time" && (
+                 <div className="mb-3">
+                   <Input
+                     label="세트 수"
+                     type="text"
+                     inputMode="numeric"
+                     value={ex.targetSets}
+                     onChange={(e) => {
+                       const val = handleNumericInput(e.target.value, 'targetSets', ex.id);
+                       updateExercise(ex.id, (prev) => ({ ...prev, targetSets: val }));
+                     }}
+                     placeholder="세트"
+                     error={inputErrors[`${ex.id}-targetSets`]}
+                     className="text-sm"
+                   />
+                 </div>
+               )}
 
-              {ex.recordType === "weight_reps" && (
-                <div className="grid grid-cols-2 gap-3 mb-3">
-                  <Input
-                    label="목표 무게"
-                    type="text"
-                    inputMode="numeric"
-                    value={ex.targetWeight}
-                    onChange={(e) => {
-                      const val = handleNumericInput(e.target.value, 'targetWeight', ex.id);
-                      updateExercise(ex.id, (prev) => ({ ...prev, targetWeight: val }));
-                    }}
-                    placeholder="kg"
-                    error={inputErrors[`${ex.id}-targetWeight`]}
-                    className="text-sm"
-                  />
-                  <Input
-                    label="목표 횟수"
-                    type="text"
-                    inputMode="numeric"
-                    value={ex.targetReps}
-                    onChange={(e) => {
-                      const val = handleNumericInput(e.target.value, 'targetReps', ex.id);
-                      updateExercise(ex.id, (prev) => ({ ...prev, targetReps: val }));
-                    }}
-                    placeholder="회"
-                    error={inputErrors[`${ex.id}-targetReps`]}
-                    className="text-sm"
-                  />
-                </div>
-              )}
+               {/* 휴식 시간 - weight_reps, reps_only만 표시 */}
+               {ex.recordType !== "time" && (
+                 <div className="mb-3">
+                   <Input
+                     label="휴식 시간(초)"
+                     type="text"
+                     inputMode="numeric"
+                     value={ex.restSeconds}
+                     onChange={(e) => {
+                       const val = handleNumericInput(e.target.value, 'restSeconds', ex.id);
+                       updateExercise(ex.id, (prev) => ({ ...prev, restSeconds: val }));
+                     }}
+                     placeholder="초"
+                     error={inputErrors[`${ex.id}-restSeconds`]}
+                     className="text-sm"
+                   />
+                 </div>
+               )}
 
-              {ex.recordType === "reps_only" && (
-                <div className="mb-3">
-                  <Input
-                    label="목표 횟수"
-                    type="text"
-                    inputMode="numeric"
-                    value={ex.targetReps}
-                    onChange={(e) => {
-                      const val = handleNumericInput(e.target.value, 'targetReps', ex.id);
-                      updateExercise(ex.id, (prev) => ({ ...prev, targetReps: val }));
-                    }}
-                    placeholder="회"
-                    error={inputErrors[`${ex.id}-targetReps`]}
-                    className="text-sm"
-                  />
-                </div>
-              )}
+               {/* weight_reps: 목표 횟수만 (무게는 자유 기록) */}
+               {ex.recordType === "weight_reps" && (
+                 <div className="mb-3">
+                   <Input
+                     label="목표 횟수"
+                     type="text"
+                     inputMode="numeric"
+                     value={ex.targetReps}
+                     onChange={(e) => {
+                       const val = handleNumericInput(e.target.value, 'targetReps', ex.id);
+                       updateExercise(ex.id, (prev) => ({ ...prev, targetReps: val }));
+                     }}
+                     placeholder="회"
+                     error={inputErrors[`${ex.id}-targetReps`]}
+                     className="text-sm"
+                   />
+                 </div>
+               )}
+
+               {/* reps_only: 목표 횟수 */}
+               {ex.recordType === "reps_only" && (
+                 <div className="mb-3">
+                   <Input
+                     label="목표 횟수"
+                     type="text"
+                     inputMode="numeric"
+                     value={ex.targetReps}
+                     onChange={(e) => {
+                       const val = handleNumericInput(e.target.value, 'targetReps', ex.id);
+                       updateExercise(ex.id, (prev) => ({ ...prev, targetReps: val }));
+                     }}
+                     placeholder="회"
+                     error={inputErrors[`${ex.id}-targetReps`]}
+                     className="text-sm"
+                   />
+                 </div>
+               )}
 
               {ex.recordType === "time" && (
                 <div className="mb-3">
