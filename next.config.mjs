@@ -9,8 +9,7 @@ const withPWA = withPWAInit({
   reloadOnOnline: true,
   workboxOptions: {
     disableDevLogs: true,
-    // 개발 모드에서 PWA 캐싱 최소화
-    runtimeCaching: process.env.NODE_ENV === 'development' ? [] : [
+    runtimeCaching: [
       {
         urlPattern: ({ url }) => url.pathname.startsWith('/_next/static/'),
         handler: 'CacheFirst',
@@ -43,7 +42,7 @@ const withPWA = withPWAInit({
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  // Turbopack 빌드 설정 (Next.js 16에서 기본 활성화)
+  // Turbopack 빌드 설정
   turbopack: {},
 
   // 정적 리소스 최적화
