@@ -426,24 +426,41 @@ export default function WorkoutDetailPage({ params }: Props) {
         {/* 하단 고정 버튼 */}
         <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 p-4 shadow-lg">
           <div className="max-w-md mx-auto">
-            {/* 현재 운동에 미완료 세트가 있는 경우 */}
+            {/* 다음 세트가 있고 미완료 세트가 있는 경우 */}
             {session.actions.hasIncompleteSets() && !isLastExercise ? (
-              <Button
-                onClick={handleNextButtonClick}
-                isLoading={session.isSaving}
-                fullWidth
-                size="lg"
-                variant="secondary"
-                className="bg-blue-600 hover:bg-blue-700 shadow-md"
-              >
-                <Check className="w-5 h-5" />
-                다음 세트 완료
-              </Button>
+              <div className="flex gap-3">
+                <Button
+                  onClick={handleNextButtonClick}
+                  isLoading={session.isSaving}
+                  variant="secondary"
+                  fullWidth
+                  size="lg"
+                  className="bg-blue-600 hover:bg-blue-700 shadow-md"
+                >
+                  <Check className="w-5 h-5" />
+                  다음 세트 완료
+                </Button>
+                <Button
+                  onClick={() => {
+                    // 완료 처리 없이 바로 다음 세트로 이동
+                    session.actions.moveToNextExercise();
+                  }}
+                  isLoading={session.isSaving}
+                  variant="primary"
+                  fullWidth
+                  size="lg"
+                  className="bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 shadow-lg"
+                >
+                  다음 운동으로
+                  <Check className="w-5 h-5" />
+                </Button>
+              </div>
             ) : isLastExercise ? (
               // 마지막 운동 - 저장 버튼
               <Button
                 onClick={handleNextButtonClick}
                 isLoading={session.isSaving}
+                variant="primary"
                 fullWidth
                 size="lg"
                 className="bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 shadow-lg"
@@ -456,6 +473,7 @@ export default function WorkoutDetailPage({ params }: Props) {
               <Button
                 onClick={handleNextButtonClick}
                 isLoading={session.isSaving}
+                variant="primary"
                 fullWidth
                 size="lg"
                 className="bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 shadow-lg"
@@ -464,14 +482,6 @@ export default function WorkoutDetailPage({ params }: Props) {
                 다음 운동으로
               </Button>
             )}
-            <p className="text-xs text-slate-500 text-center mt-2">
-              {isLastExercise
-                ? '완료된 세트만 저장됩니다'
-                : session.actions.hasIncompleteSets()
-                  ? '다음 세트를 먼저 완료해주세요'
-                  : '완료된 세트가 있으면 다음으로 넘어갈 수 있습니다'
-              }
-            </p>
           </div>
         </div>
       </div>
