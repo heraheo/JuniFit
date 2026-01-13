@@ -24,12 +24,17 @@ export default function Page() {
       setUser(user);
 
       if (user) {
-        // 프로필 정보 가져오기
-        const { data: profileData } = await supabase
+        // 프로필 정보 가져오기 (타임아웃 5초로 설정)
+        const { data: profileData, error: profileError } = await supabase
           .from('profiles')
           .select('nickname, avatar_url')
           .eq('id', user.id)
-          .single();
+          .maybeSingle();
+
+        if (profileError) {
+          console.error('프로필 조회 오류:', profileError);
+          // 타임아웃이거나 다른 에러여도 계속 진행
+        }
 
         if (profileData) {
           setProfile(profileData);
@@ -43,13 +48,18 @@ export default function Page() {
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
       setUser(session?.user ?? null);
-      
+
       if (session?.user) {
-        const { data: profileData } = await supabase
+        // 프로필 정보 가져오기 (타임아웃 5초로 설정)
+        const { data: profileData, error: profileError } = await supabase
           .from('profiles')
           .select('nickname, avatar_url')
           .eq('id', session.user.id)
-          .single();
+          .maybeSingle();
+
+        if (profileError) {
+          console.error('프로필 조회 오류:', profileError);
+        }
 
         if (profileData) {
           setProfile(profileData);
