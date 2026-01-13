@@ -426,9 +426,9 @@ export default function WorkoutDetailPage({ params }: Props) {
         {/* 하단 고정 버튼 */}
         <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 p-4 shadow-lg">
           <div className="max-w-md mx-auto">
-            {/* 다음 세트가 있고 미완료 세트가 있는 경우 */}
+            {/* 세트 완료 버튼 - 미완료 세트가 있고 마지막 운동이 아닐 경우에만 표시 */}
             {session.actions.hasIncompleteSets() && !isLastExercise ? (
-              <div className="flex gap-3">
+              <>
                 <Button
                   onClick={handleNextButtonClick}
                   isLoading={session.isSaving}
@@ -438,23 +438,131 @@ export default function WorkoutDetailPage({ params }: Props) {
                   className="bg-blue-600 hover:bg-blue-700 shadow-md"
                 >
                   <Check className="w-5 h-5" />
-                  다음 세트 완료
+                  세트 완료
                 </Button>
                 <Button
-                  onClick={() => {
-                    // 완료 처리 없이 바로 다음 세트로 이동
-                    session.actions.moveToNextExercise();
-                  }}
+                  onClick={handleNextButtonClick}
                   isLoading={session.isSaving}
                   variant="primary"
                   fullWidth
                   size="lg"
                   className="bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 shadow-lg"
                 >
-                  다음 운동으로
                   <Check className="w-5 h-5" />
+                  다음 운동으로
                 </Button>
-              </div>
+              </>
+            ) : (
+              // 나머지 경우: 마지막 운동이면 저장, 다음 운동이면 다음 운동으로
+              <Button
+                onClick={handleNextButtonClick}
+                isLoading={session.isSaving}
+                variant="primary"
+                fullWidth
+                size="lg"
+                className={isLastExercise
+                  ? "bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 shadow-lg"
+                  : "bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 shadow-lg"
+                }
+              >
+                <Check className="w-5 h-5" />
+                {isLastExercise ? '운동 기록 저장' : '다음 운동으로'}
+              </Button>
+            )}
+          </div>
+          <p className="text-xs text-slate-500 text-center mt-2">
+            {isLastExercise
+              ? '완료된 세트만 저장됩니다'
+              : session.actions.hasIncompleteSets()
+                ? '미완료 세트가 있습니다'
+                : '완료된 세트가 있으면 다음으로 넘어갈 수 있습니다'
+              }
+          </p>
+        </div>
+          <p className="text-xs text-slate-500 text-center mt-2">
+            {isLastExercise
+              ? '완료된 세트만 저장됩니다'
+              : session.actions.hasIncompleteSets()
+                ? '미완료 세트가 있습니다'
+                : '완료된 세트가 있으면 다음으로 넘어갈 수 있습니다'
+              }
+          </p>
+        </div>
+        </div>
+            ) : isLastExercise ? (
+              // 마지막 운동 - 저장 버튼
+              <Button
+                onClick={handleNextButtonClick}
+                isLoading={session.isSaving}
+                variant="primary"
+                fullWidth
+                size="lg"
+                className="bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 shadow-lg"
+              >
+                운동 저장하기
+                <Check className="w-5 h-5" />
+              </Button>
+            ) : (
+              // 다음 운동이 있는 경우
+              <Button
+                onClick={handleNextButtonClick}
+                isLoading={session.isSaving}
+                variant="primary"
+                fullWidth
+                size="lg"
+                className="bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 shadow-lg"
+              >
+                다음 운동으로
+                <Check className="w-5 h-5" />
+              </Button>
+            )}
+            <p className="text-xs text-slate-500 text-center mt-2">
+              {isLastExercise
+                ? '완료된 세트만 저장됩니다'
+                : session.actions.hasIncompleteSets()
+                  ? '미완료 세트를 완료하고 넘어가거나 건너뛰기할 수 있습니다'
+                  : '완료된 세트가 있으면 다음으로 넘어갈 수 있습니다'
+              }
+            </p>
+          </div>
+        </div>
+            ) : isLastExercise ? (
+              // 마지막 운동 - 저장 버튼
+              <Button
+                onClick={handleNextButtonClick}
+                isLoading={session.isSaving}
+                variant="primary"
+                fullWidth
+                size="lg"
+                className="bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 shadow-lg"
+              >
+                <Check className="w-5 h-5" />
+                운동 저장하기
+              </Button>
+            ) : (
+              // 다음 운동이 있는 경우
+              <Button
+                onClick={handleNextButtonClick}
+                isLoading={session.isSaving}
+                variant="primary"
+                fullWidth
+                size="lg"
+                className="bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 shadow-lg"
+              >
+                <Check className="w-5 h-5" />
+                다음 운동
+              </Button>
+            )}
+            <p className="text-xs text-slate-500 text-center mt-2">
+              {isLastExercise
+                ? '완료된 세트만 저장됩니다'
+                : session.actions.hasIncompleteSets()
+                  ? '다음 운동으로 넘어가면 미완료 세트가 0으로 저장됩니다'
+                  : '완료된 세트가 있으면 다음으로 넘어갈 수 있습니다'
+              }
+            </p>
+          </div>
+        </div>
             ) : isLastExercise ? (
               // 마지막 운동 - 저장 버튼
               <Button

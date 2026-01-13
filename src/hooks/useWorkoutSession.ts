@@ -125,7 +125,7 @@ export function useWorkoutSession({
     }));
   }, []);
 
-  // 세트 완료 토글
+  // 세트 완료 토글 (타이머 없음)
   const toggleSetComplete = useCallback((exerciseId: string, setIndex: number) => {
     if (!program) return;
 
@@ -182,8 +182,8 @@ export function useWorkoutSession({
       )
     }));
 
-    // 세트를 완료(체크)하고, 마지막 세트가 아닌 경우에만 타이머 시작
-    if (newCompletedState && !isLastSet && exercise.rest_seconds) {
+    // 마지막 세트일 때에만 타이머 시작 (예전 로직: 항상 타이머 시작)
+    if (newCompletedState && exercise.rest_seconds) {
       onSetComplete(exercise.rest_seconds);
     }
   }, [program, inputs, onSetComplete]);
