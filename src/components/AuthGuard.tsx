@@ -36,16 +36,49 @@ export default function AuthGuard({ children }: { children: React.ReactNode }) {
   const isCheckingRef = useRef(false);
   const isMountedRef = useRef(true);
   const initialEventHandledRef = useRef(false);
-
-  useEffect(() => {
-    return () => {
-      isMountedRef.current = false;
-    };
-  }, []);
+  const envInfoLoggedRef = useRef(false);
 
   const addDebug = useCallback((msg: string) => {
     setDebugInfo((prev) => [...prev, `${new Date().toLocaleTimeString()}: ${msg}`]);
   }, []);
+
+  const logEnvInfo = useCallback(() => {
+    if (envInfoLoggedRef.current) return;
+    envInfoLoggedRef.current = true;
+
+    addDebug(`환경: ua=${typeof navigator !== "undefined" ? navigator.userAgent : "unknown"}`);
+    addDebug(`환경: online=${typeof navigator !== "undefined" ? String(navigator.onLine) : "unknown"}`);
+    addDebug(`환경: sw=${typeof navigator !== "undefined" && "serviceWorker" in navigator ? "supported" : "none"}`);
+    addDebug(`환경: visibility=${typeof document !== "undefined" ? document.visibilityState : "unknown"}`);
+    addDebug(`환경: location=${typeof window !== "undefined" ? window.location.pathname : "unknown"}`);
+  }, [addDebug]);
+
+  useEffect(() => {
+    const handleOnline = () => addDebug("네트워크: online 이벤트");
+    const handleOffline = () => addDebug("네트워크: offline 이벤트");
+    const handleVisibility = () => addDebug(`가시성 변경: ${document.visibilityState}`);
+
+    if (typeof window !== "undefined") {
+      window.addEventListener("online", handleOnline);
+      window.addEventListener("offline", handleOffline);
+    }
+
+    if (typeof document !== "undefined") {
+      document.addEventListener("visibilitychange", handleVisibility);
+    }
+
+    return () => {
+      if (typeof window !== "undefined") {
+        window.removeEventListener("online", handleOnline);
+        window.removeEventListener("offline", handleOffline);
+      }
+
+      if (typeof document !== "undefined") {
+        document.removeEventListener("visibilitychange", handleVisibility);
+      }
+      isMountedRef.current = false;
+    };
+  }, [addDebug]);
 
   const finishCheck = useCallback(() => {
     isCheckingRef.current = false;
@@ -77,17 +110,21 @@ export default function AuthGuard({ children }: { children: React.ReactNode }) {
         return;
       }
 
+      addDebug(`네트워크: online=${typeof navigator !== "undefined" ? String(navigator.onLine) : "unknown"}`);
+
       addDebug("세션 확인 중...");
+      const sessionStart = performance.now();
       const sessionResponse = await withTimeout(supabase.auth.getSession(), "세션 확인");
-      addDebug("세션 확인 완료");
+      addDebug(`세션 확인 완료 (${Math.round(performance.now() - sessionStart)}ms)`);
 
       const { data: { session }, error: sessionError } = sessionResponse;
 
       if (sessionError) {
+        addDebug(`세션 에러: ${sessionError.message}`);
         throw sessionError;
       }
 
-      addDebug(session ? `세션 있음 (ID: ${session.user.id.slice(0, 8)})` : "세션 없음");
+      addDebug(session ? `세션 있음 (ID: ${session.user.id.slice(0, 8)} exp=${session.expires_at ?? "none"})` : "세션 없음");
 
       if (!session) {
         if (!isLoginPath) {
@@ -107,15 +144,17 @@ export default function AuthGuard({ children }: { children: React.ReactNode }) {
         .eq("id", session.user.id)
         .maybeSingle();
       
+      const profileStart = performance.now();
       const profileResponse = await withTimeout(
         profileQuery,
         "프로필 조회"
       );
-      addDebug("프로필 조회 완료");
+      addDebug(`프로필 조회 완료 (${Math.round(performance.now() - profileStart)}ms)`);
 
       const { data: profile, error: profileError } = profileResponse;
 
       if (profileError) {
+        addDebug(`프로필 에러: ${profileError.message}`);
         throw profileError;
       }
 
@@ -152,16 +191,18 @@ export default function AuthGuard({ children }: { children: React.ReactNode }) {
 
   const handleRetry = useCallback(() => {
     if (isCheckingRef.current) return;
+    addDebug("재시도 클릭");
     setAuthError(null);
     setIsLoading(true);
     checkAuth();
-  }, [checkAuth]);
+  }, [addDebug, checkAuth]);
 
   useEffect(() => {
     initialEventHandledRef.current = false;
+    logEnvInfo();
     checkAuth();
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       if (!initialEventHandledRef.current && event === "SIGNED_IN") {
         initialEventHandledRef.current = true;
         addDebug("초기 SIGNED_IN 이벤트 무시");
@@ -169,6 +210,7 @@ export default function AuthGuard({ children }: { children: React.ReactNode }) {
       }
 
       addDebug(`인증 이벤트: ${event}`);
+      addDebug(`세션 이벤트: ${session ? `user=${session.user.id.slice(0, 8)} exp=${session.expires_at ?? "none"}` : "none"}`);
 
       if (event === "SIGNED_OUT") {
         if (isMountedRef.current) {
