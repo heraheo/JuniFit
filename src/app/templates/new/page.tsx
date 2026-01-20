@@ -12,83 +12,14 @@ import { Modal } from "@/components/ui/Modal";
 import { Card } from "@/components/ui/Card";
 import ExerciseSelector from "@/components/ExerciseSelector";
 import TimeInput from "@/components/ui/TimeInput";
-import type { ExerciseMeta } from "@/constants/exercise";
-
-const toExerciseMeta = (exercise: ProgramExerciseForm): ExerciseMeta | null => {
-  if (!exercise.exerciseId || !exercise.recordType || !exercise.targetPart) return null;
-  return {
-    id: exercise.exerciseId,
-    name: exercise.exerciseName,
-    record_type: exercise.recordType,
-    target_part: exercise.targetPart,
-  };
-};
-
-const numberOrNull = (value: string) => {
-  if (value.trim() === "") return null;
-  const parsed = Number(value);
-  return Number.isNaN(parsed) ? null : parsed;
-};
-
-const looksLikeMissingColumn = (error: unknown, column: string) => {
-  if (!error || typeof error !== "object") return false;
-  const message = (error as { message?: unknown }).message;
-  return typeof message === "string" && message.toLowerCase().includes(column.toLowerCase()) && message.toLowerCase().includes("does not exist");
-};
-
-const isRlsError = (error: unknown) => {
-  if (!error || typeof error !== "object") return false;
-  const message = (error as { message?: unknown }).message;
-  if (typeof message !== "string") return false;
-  return message.toLowerCase().includes("row-level security") || message.toLowerCase().includes("rls");
-};
-
-const formatUnknownError = (error: unknown) => {
-  if (error instanceof Error) return error.message;
-  if (typeof error === "string") return error;
-  if (error && typeof error === "object") {
-    const anyErr = error as any;
-    const message = typeof anyErr.message === "string" ? anyErr.message : undefined;
-    const details = typeof anyErr.details === "string" ? anyErr.details : undefined;
-    const hint = typeof anyErr.hint === "string" ? anyErr.hint : undefined;
-    const code = typeof anyErr.code === "string" ? anyErr.code : undefined;
-
-    const parts = [message, details, hint, code ? `code: ${code}` : undefined].filter(Boolean);
-    if (parts.length) return parts.join("\n");
-
-    try {
-      return JSON.stringify(error);
-    } catch {
-      return "알 수 없는 오류";
-    }
-  }
-  return "알 수 없는 오류";
-};
-
-const stripField = <T extends Record<string, any>, K extends keyof T>(rows: T[], key: K) =>
-  rows.map(({ [key]: _removed, ...rest }) => rest);
-
-const isExerciseComplete = (exercise: ProgramExerciseForm) => {
-  if (!exercise.exerciseId || !exercise.recordType) return false;
-
-  if (exercise.recordType === "time") {
-    return exercise.targetTime !== "" && Number(exercise.targetTime) > 0;
-  }
-
-  // weight_reps, reps_only
-  if (exercise.targetSets === "" || Number(exercise.targetSets) < 1) return false;
-  if (exercise.restSeconds === "" || Number(exercise.restSeconds) < 0) return false;
-
-  if (exercise.recordType === "weight_reps") {
-    return exercise.targetReps !== "" && Number(exercise.targetReps) > 0;
-  }
-
-  if (exercise.recordType === "reps_only") {
-    return exercise.targetReps !== "" && Number(exercise.targetReps) > 0;
-  }
-
-  return false;
-};
+import {
+  formatUnknownError,
+  isExerciseComplete,
+  isRlsError,
+  looksLikeMissingColumn,
+  toExerciseMeta,
+  toProgramExercisesPayload,
+} from "@/lib/programs/form";
 
 export default function Page() {
   const router = useRouter();
@@ -139,6 +70,12 @@ export default function Page() {
         .select('id, title')
         .eq('title', formState.title.trim());
 
+      if (checkError && isRlsError(checkError)) {
+        alert("권한이 없습니다. 관리자에게 문의해주세요.");
+        setIsSaving(false);
+        return;
+      }
+
       if (checkError) throw checkError;
 
       if (existingPrograms && existingPrograms.length > 0) {
@@ -175,29 +112,31 @@ export default function Page() {
           .single());
       }
 
+      if (programError && isRlsError(programError)) {
+        alert("권한이 없습니다. 관리자에게 문의해주세요.");
+        setIsSaving(false);
+        return;
+      }
+
       if (programError) throw programError;
       if (!programData) throw new Error('프로그램 저장에 실패했습니다.');
 
       const programId = programData.id;
 
       // 2. 운동 목록 저장
-      const programExercises = completeExercises
-        .map((ex, index) => ({
-          program_id: programId,
-          exercise_id: ex.exerciseId!,
-          order: index,
-          target_sets: Number(ex.targetSets),
-          target_weight: ex.recordType === "weight_reps" ? numberOrNull(ex.targetWeight) : null,
-          target_reps: (ex.recordType === "reps_only" || ex.recordType === "weight_reps") ? numberOrNull(ex.targetReps) : null,
-          target_time: ex.recordType === "time" ? numberOrNull(ex.targetTime) : null,
-          rest_seconds: ex.recordType === "time" ? null : numberOrNull(ex.restSeconds),
-        }));
+      const programExercises = toProgramExercisesPayload(completeExercises, programId);
 
       // Insert exercises
       let exercisesError: any = null;
       ({ error: exercisesError } = await supabase
         .from('program_exercises')
         .insert(programExercises));
+
+      if (exercisesError && isRlsError(exercisesError)) {
+        alert("권한이 없습니다. 관리자에게 문의해주세요.");
+        setIsSaving(false);
+        return;
+      }
 
       if (exercisesError) {
         // Prevent creating a program with 0 exercises.

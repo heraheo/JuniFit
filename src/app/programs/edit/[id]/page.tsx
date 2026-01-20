@@ -11,84 +11,15 @@ import { Card } from "@/components/ui/Card";
 import { createClient } from "@/lib/supabase/client";
 import ExerciseSelector from "@/components/ExerciseSelector";
 import TimeInput from "@/components/ui/TimeInput";
-import type { ExerciseMeta } from "@/constants/exercise";
-import { validateNumericInput, validateProgramForm, type ProgramExerciseForm } from "@/lib/validation";
-
-const toExerciseMeta = (exercise: ProgramExerciseForm): ExerciseMeta | null => {
-  if (!exercise.exerciseId || !exercise.recordType || !exercise.targetPart) return null;
-  return {
-    id: exercise.exerciseId,
-    name: exercise.exerciseName,
-    record_type: exercise.recordType,
-    target_part: exercise.targetPart,
-  };
-};
-
-const numberOrNull = (value: string) => {
-  if (value.trim() === "") return null;
-  const parsed = Number(value);
-  return Number.isNaN(parsed) ? null : parsed;
-};
-
-const looksLikeMissingColumn = (error: unknown, column: string) => {
-  if (!error || typeof error !== "object") return false;
-  const message = (error as { message?: unknown }).message;
-  return typeof message === "string" && message.toLowerCase().includes(column.toLowerCase()) && message.toLowerCase().includes("does not exist");
-};
-
-const isRlsError = (error: unknown) => {
-  if (!error || typeof error !== "object") return false;
-  const message = (error as { message?: unknown }).message;
-  if (typeof message !== "string") return false;
-  return message.toLowerCase().includes("row-level security") || message.toLowerCase().includes("rls");
-};
-
-const formatUnknownError = (error: unknown) => {
-  if (error instanceof Error) return error.message;
-  if (typeof error === "string") return error;
-  if (error && typeof error === "object") {
-    const anyErr = error as any;
-    const message = typeof anyErr.message === "string" ? anyErr.message : undefined;
-    const details = typeof anyErr.details === "string" ? anyErr.details : undefined;
-    const hint = typeof anyErr.hint === "string" ? anyErr.hint : undefined;
-    const code = typeof anyErr.code === "string" ? anyErr.code : undefined;
-
-    const parts = [message, details, hint, code ? `code: ${code}` : undefined].filter(Boolean);
-    if (parts.length) return parts.join("\n");
-
-    try {
-      return JSON.stringify(error);
-    } catch {
-      return "알 수 없는 오류";
-    }
-  }
-  return "알 수 없는 오류";
-};
-
-const stripField = <T extends Record<string, any>, K extends keyof T>(rows: T[], key: K) =>
-  rows.map(({ [key]: _removed, ...rest }) => rest);
-
-const isExerciseComplete = (exercise: ProgramExerciseForm) => {
-  if (!exercise.exerciseId || !exercise.recordType) return false;
-
-  if (exercise.recordType === "time") {
-    return exercise.targetTime !== "" && Number(exercise.targetTime) > 0;
-  }
-
-  // weight_reps, reps_only
-  if (exercise.targetSets === "" || Number(exercise.targetSets) < 1) return false;
-  if (exercise.restSeconds === "" || Number(exercise.restSeconds) < 0) return false;
-
-  if (exercise.recordType === "reps_only") {
-    return exercise.targetReps !== "" && Number(exercise.targetReps) > 0;
-  }
-
-  if (exercise.recordType === "weight_reps") {
-    return exercise.targetReps !== "" && Number(exercise.targetReps) > 0;
-  }
-
-  return false;
-};
+import { useProgramForm, type ProgramExerciseForm } from "@/hooks/useProgramForm";
+import {
+  formatUnknownError,
+  isExerciseComplete,
+  isRlsError,
+  looksLikeMissingColumn,
+  toExerciseMeta,
+  toProgramExercisesPayload,
+} from "@/lib/programs/form";
 
 export default function ProgramEditPage() {
   const router = useRouter();
@@ -96,16 +27,7 @@ export default function ProgramEditPage() {
   const programId = params.id as string;
 
   const [loading, setLoading] = useState(true);
-  const [title, setTitle] = useState("");
-  const [description, setDescription] = useState("");
-  const [rpe, setRpe] = useState("");
-  const [exercises, setExercises] = useState<ProgramExerciseForm[]>([]);
-  const [errors, setErrors] = useState<{
-    title?: string;
-    description?: string;
-    exercises?: Record<string, { summary?: string }>;
-  }>({});
-  const [inputErrors, setInputErrors] = useState<Record<string, string>>({});
+  const { formState, validation, actions } = useProgramForm();
   const [isSaving, setIsSaving] = useState(false);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
 
@@ -113,7 +35,7 @@ export default function ProgramEditPage() {
     setLoading(true);
     try {
       const supabase = createClient();
-      
+
       // 프로그램 정보와 운동 목록을 병렬로 조회하여 속도 개선
       const [programResult, exercisesResult] = await Promise.all([
         supabase
@@ -131,13 +53,26 @@ export default function ProgramEditPage() {
       const { data: program, error: programError } = programResult;
       const { data: programExercises, error: exercisesError } = exercisesResult;
 
+      if (programError && isRlsError(programError)) {
+        alert("권한이 없습니다. 관리자에게 문의해주세요.");
+        router.push('/programs/manage');
+        return;
+      }
+
       if (programError) throw programError;
       if (!program) throw new Error('프로그램을 찾을 수 없습니다.');
+
+      if (exercisesError && isRlsError(exercisesError)) {
+        alert("권한이 없습니다. 관리자에게 문의해주세요.");
+        router.push('/programs/manage');
+        return;
+      }
+
       if (exercisesError) throw exercisesError;
 
-      setTitle(program.title);
-      setDescription(program.description || '');
-      setRpe(program.rpe ? String(program.rpe) : '');
+      actions.setTitle(program.title);
+      actions.setDescription(program.description || '');
+      actions.setRpe(program.rpe ? String(program.rpe) : '');
 
       // DB 데이터를 UI 형식으로 변환
       const convertedExercises: ProgramExerciseForm[] = (programExercises || []).map((ex: any) => {
@@ -156,20 +91,25 @@ export default function ProgramEditPage() {
         };
       });
 
-      setExercises(convertedExercises.length > 0 ? convertedExercises : [
-        {
-          id: String(Date.now()),
-          exerciseId: "",
-          exerciseName: "",
-          recordType: "",
-          targetPart: "",
-          targetSets: "",
-          restSeconds: "",
-          targetWeight: "",
-          targetReps: "",
-          targetTime: "",
-        }
-      ]);
+      actions.setExercises(
+        convertedExercises.length > 0
+          ? convertedExercises
+          : [
+              {
+                id: String(Date.now()),
+                exerciseId: "",
+                exerciseName: "",
+                recordType: "",
+                targetPart: "",
+                targetSets: "",
+                restSeconds: "",
+                targetWeight: "",
+                targetReps: "",
+                targetTime: "",
+              },
+            ]
+      );
+      actions.resetValidation();
 
     } catch (error) {
       console.error('Error fetching program:', error);
@@ -178,78 +118,24 @@ export default function ProgramEditPage() {
     } finally {
       setLoading(false);
     }
-  }, [programId, router]);
+  }, [programId, router, actions]);
+
 
   useEffect(() => {
     fetchProgram();
   }, [fetchProgram]);
 
-  const addExercise = () => {
-    setExercises((prev) => [
-      ...prev,
-      {
-        id: String(Date.now() + Math.random()),
-        exerciseId: "",
-        exerciseName: "",
-        recordType: "",
-        targetPart: "",
-        targetSets: "",
-        restSeconds: "",
-        targetWeight: "",
-        targetReps: "",
-        targetTime: "",
-      },
-    ]);
-  };
-
-  const updateExercise = (id: string, updater: (ex: ProgramExerciseForm) => ProgramExerciseForm) => {
-    setExercises((prev) => prev.map((ex) => (ex.id === id ? updater(ex) : ex)));
-  };
-
-  const removeExercise = (id: string) => {
-    setExercises((prev) => prev.filter((ex) => ex.id !== id));
-    setErrors((e) => {
-      if (!e.exercises) return e;
-      const copy = { ...e.exercises };
-      delete copy[id];
-      return { ...e, exercises: Object.keys(copy).length ? copy : undefined };
-    });
-  };
-
-  const computeErrors = (): typeof errors => {
-    return validateProgramForm(title, description, exercises);
-  };
-
-  const handleNumericInput = (value: string, field: string, exerciseId: string) => {
-    const errorKey = `${exerciseId}-${field}`;
-    const result = validateNumericInput(value);
-    
-    if (result.isValid) {
-      setInputErrors((prev) => {
-        const copy = { ...prev };
-        delete copy[errorKey];
-        return copy;
-      });
-    } else if (result.error) {
-      setInputErrors((prev) => ({ ...prev, [errorKey]: result.error! }));
-    }
-    
-    return result.sanitizedValue;
-  };
 
   const save = async () => {
     if (isSaving) return;
 
-    const hasInputErrors = Object.keys(inputErrors).length > 0;
+    const hasInputErrors = Object.keys(validation.inputErrors).length > 0;
     if (hasInputErrors) {
       alert("입력 오류를 먼저 수정해주세요.");
       return;
     }
 
-    const computed = computeErrors();
-    setErrors(computed);
-    const hasErrors = Boolean(computed.title || computed.description || (computed.exercises && Object.keys(computed.exercises).length > 0));
-    if (hasErrors) {
+    if (!actions.validateForm()) {
       alert("필수 입력란을 모두 채워주세요.");
       return;
     }
@@ -266,7 +152,7 @@ export default function ProgramEditPage() {
         return;
       }
 
-      const completeExercises = exercises.filter(isExerciseComplete);
+      const completeExercises = formState.exercises.filter(isExerciseComplete);
       if (completeExercises.length === 0) {
         setIsSaving(false);
         alert("완성된 운동을 최소 1개 이상 추가해주세요.");
@@ -277,9 +163,9 @@ export default function ProgramEditPage() {
       let { error: programError } = await supabase
         .from('programs')
         .update({
-          title: title.trim(),
-          description: description.trim(),
-          rpe: rpe.trim() !== "" ? Number(rpe) : null,
+          title: formState.title.trim(),
+          description: formState.description.trim(),
+          rpe: formState.rpe.trim() !== "" ? Number(formState.rpe) : null,
         })
         .eq('id', programId);
 
@@ -287,10 +173,16 @@ export default function ProgramEditPage() {
         ({ error: programError } = await supabase
           .from('programs')
           .update({
-            title: title.trim(),
-            description: description.trim(),
+            title: formState.title.trim(),
+            description: formState.description.trim(),
           })
           .eq('id', programId));
+      }
+
+      if (programError && isRlsError(programError)) {
+        alert("권한이 없습니다. 관리자에게 문의해주세요.");
+        setIsSaving(false);
+        return;
       }
 
       if (programError) throw programError;
@@ -301,27 +193,30 @@ export default function ProgramEditPage() {
         .delete()
         .eq('program_id', programId);
 
+      if (deleteError && isRlsError(deleteError)) {
+        alert("권한이 없습니다. 관리자에게 문의해주세요.");
+        setIsSaving(false);
+        return;
+      }
+
       if (deleteError) throw deleteError;
 
       // 3. 새로운 운동 목록 저장
-      const programExercises = completeExercises
-        .map((ex, index) => ({
-          program_id: programId,
-          exercise_id: ex.exerciseId,
-          order: index,
-          target_sets: Number(ex.targetSets),
-          target_weight: ex.recordType === "weight_reps" ? numberOrNull(ex.targetWeight) : null,
-          target_reps: (ex.recordType === "reps_only" || ex.recordType === "weight_reps") ? numberOrNull(ex.targetReps) : null,
-          target_time: ex.recordType === "time" ? numberOrNull(ex.targetTime) : null,
-          rest_seconds: ex.recordType === "time" ? null : numberOrNull(ex.restSeconds),
-        }));
+      const programExercises = toProgramExercisesPayload(completeExercises, programId);
 
       let exercisesError: any = null;
       ({ error: exercisesError } = await supabase
         .from('program_exercises')
         .insert(programExercises));
 
+      if (exercisesError && isRlsError(exercisesError)) {
+        alert("권한이 없습니다. 관리자에게 문의해주세요.");
+        setIsSaving(false);
+        return;
+      }
+
       if (exercisesError) throw exercisesError;
+
 
       setIsSaving(false);
       setShowSuccessModal(true);
@@ -356,38 +251,32 @@ export default function ProgramEditPage() {
         <Card padding="sm" className="mb-6">
           <Input
             label="프로그램 제목"
-            value={title}
-            onChange={(e) => {
-              setTitle(e.target.value);
-              setErrors((prev) => ({ ...prev, title: undefined }));
-            }}
+            value={formState.title}
+            onChange={(e) => actions.setTitle(e.target.value)}
             placeholder="제목을 입력하세요"
-            error={errors.title}
+            error={validation.errors.title}
             className="mb-4"
           />
 
           <Input
             as="textarea"
             label="전체 가이드"
-            value={description}
-            onChange={(e) => {
-              setDescription(e.target.value);
-              setErrors((prev) => ({ ...prev, description: undefined }));
-            }}
+            value={formState.description}
+            onChange={(e) => actions.setDescription(e.target.value)}
             placeholder="프로그램의 전체 가이드를 입력하세요"
-            error={errors.description}
+            error={validation.errors.description}
             rows={3}
           />
-        {/* RPE 입력 */}
+          {/* RPE 입력 */}
           <Input
             label="RPE (운동 자각도, 선택)"
             type="text"
             inputMode="numeric"
-            value={rpe}
+            value={formState.rpe}
             onChange={(e) => {
               const value = e.target.value;
               if (value === "" || (/^\d+$/.test(value) && Number(value) >= 1 && Number(value) <= 10)) {
-                setRpe(value);
+                actions.setRpe(value);
               }
             }}
             placeholder="1~10 사이의 강도 (예: 8은 2개 더 가능)"
@@ -396,7 +285,7 @@ export default function ProgramEditPage() {
 
         {/* Exercises list */}
         <section className="space-y-4 mb-6">
-          {exercises.map((ex, i) => (
+          {formState.exercises.map((ex) => (
             <Card key={ex.id} padding="sm">
               <div className="mb-3 flex items-center gap-3">
                 <div className="flex-1">
@@ -404,7 +293,7 @@ export default function ProgramEditPage() {
                     label="운동 선택"
                     value={toExerciseMeta(ex)}
                     onSelect={(selected) => {
-                      updateExercise(ex.id, (prev) => ({
+                      actions.updateExercise(ex.id, (prev) => ({
                         ...prev,
                         exerciseId: selected.id,
                         exerciseName: selected.name,
@@ -416,7 +305,7 @@ export default function ProgramEditPage() {
                       }));
                     }}
                     onClear={() => {
-                      updateExercise(ex.id, (prev) => ({
+                      actions.updateExercise(ex.id, (prev) => ({
                         ...prev,
                         exerciseId: "",
                         exerciseName: "",
@@ -426,9 +315,9 @@ export default function ProgramEditPage() {
                     }}
                   />
                 </div>
-                {exercises.length > 1 && (
+                {formState.exercises.length > 1 && (
                   <button
-                    onClick={() => removeExercise(ex.id)}
+                    onClick={() => actions.removeExercise(ex.id)}
                     className="p-2 text-red-500 hover:bg-red-50 rounded-lg transition-colors"
                   >
                     <Trash className="w-5 h-5" />
@@ -436,81 +325,62 @@ export default function ProgramEditPage() {
                 )}
               </div>
 
-               {/* 세트 수 - weight_reps, reps_only만 표시 */}
-               {ex.recordType !== "time" && (
-                 <div className="mb-3">
-                   <Input
-                     label="세트 수"
-                     type="text"
-                     inputMode="numeric"
-                     value={ex.targetSets}
-                     onChange={(e) => {
-                       const val = handleNumericInput(e.target.value, 'targetSets', ex.id);
-                       updateExercise(ex.id, (prev) => ({ ...prev, targetSets: val }));
-                     }}
-                     placeholder="세트"
-                     error={inputErrors[`${ex.id}-targetSets`]}
-                     className="text-sm"
-                   />
-                 </div>
-               )}
+              {/* 세트 수 - weight_reps, reps_only만 표시 */}
+              {ex.recordType !== "time" && (
+                <div className="mb-3">
+                  <Input
+                    label="세트 수"
+                    type="text"
+                    inputMode="numeric"
+                    value={ex.targetSets}
+                    onChange={(e) => {
+                      const val = actions.handleNumericInput(e.target.value, "targetSets", ex.id);
+                      actions.updateExercise(ex.id, (prev) => ({ ...prev, targetSets: val }));
+                    }}
+                    placeholder="세트"
+                    error={validation.inputErrors[`${ex.id}-targetSets`]}
+                    className="text-sm"
+                  />
+                </div>
+              )}
 
-               {/* 휴식 시간 - weight_reps, reps_only만 표시 */}
-               {ex.recordType !== "time" && (
-                 <div className="mb-3">
-                   <Input
-                     label="휴식 시간(초)"
-                     type="text"
-                     inputMode="numeric"
-                     value={ex.restSeconds}
-                     onChange={(e) => {
-                       const val = handleNumericInput(e.target.value, 'restSeconds', ex.id);
-                       updateExercise(ex.id, (prev) => ({ ...prev, restSeconds: val }));
-                     }}
-                     placeholder="초"
-                     error={inputErrors[`${ex.id}-restSeconds`]}
-                     className="text-sm"
-                   />
-                 </div>
-               )}
+              {/* 휴식 시간 - weight_reps, reps_only만 표시 */}
+              {ex.recordType !== "time" && (
+                <div className="mb-3">
+                  <Input
+                    label="휴식 시간(초)"
+                    type="text"
+                    inputMode="numeric"
+                    value={ex.restSeconds}
+                    onChange={(e) => {
+                      const val = actions.handleNumericInput(e.target.value, "restSeconds", ex.id);
+                      actions.updateExercise(ex.id, (prev) => ({ ...prev, restSeconds: val }));
+                    }}
+                    placeholder="초"
+                    error={validation.inputErrors[`${ex.id}-restSeconds`]}
+                    className="text-sm"
+                  />
+                </div>
+              )}
 
-               {/* weight_reps: 목표 횟수만 (무게는 자유 기록) */}
-               {ex.recordType === "weight_reps" && (
-                 <div className="mb-3">
-                   <Input
-                     label="목표 횟수"
-                     type="text"
-                     inputMode="numeric"
-                     value={ex.targetReps}
-                     onChange={(e) => {
-                       const val = handleNumericInput(e.target.value, 'targetReps', ex.id);
-                       updateExercise(ex.id, (prev) => ({ ...prev, targetReps: val }));
-                     }}
-                     placeholder="회"
-                     error={inputErrors[`${ex.id}-targetReps`]}
-                     className="text-sm"
-                   />
-                 </div>
-               )}
-
-               {/* reps_only: 목표 횟수 */}
-               {ex.recordType === "reps_only" && (
-                 <div className="mb-3">
-                   <Input
-                     label="목표 횟수"
-                     type="text"
-                     inputMode="numeric"
-                     value={ex.targetReps}
-                     onChange={(e) => {
-                       const val = handleNumericInput(e.target.value, 'targetReps', ex.id);
-                       updateExercise(ex.id, (prev) => ({ ...prev, targetReps: val }));
-                     }}
-                     placeholder="회"
-                     error={inputErrors[`${ex.id}-targetReps`]}
-                     className="text-sm"
-                   />
-                 </div>
-               )}
+              {/* weight_reps: 목표 횟수만 (무게는 자유 기록) */}
+              {ex.recordType === "weight_reps" && (
+                <div className="mb-3">
+                  <Input
+                    label="목표 횟수"
+                    type="text"
+                    inputMode="numeric"
+                    value={ex.targetReps}
+                    onChange={(e) => {
+                      const val = actions.handleNumericInput(e.target.value, "targetReps", ex.id);
+                      actions.updateExercise(ex.id, (prev) => ({ ...prev, targetReps: val }));
+                    }}
+                    placeholder="회"
+                    error={validation.inputErrors[`${ex.id}-targetReps`]}
+                    className="text-sm"
+                  />
+                </div>
+              )}
 
               {ex.recordType === "time" && (
                 <div className="mb-3">
@@ -518,9 +388,9 @@ export default function ProgramEditPage() {
                     label="목표 시간"
                     value={ex.targetTime}
                     onChange={(seconds) => {
-                      updateExercise(ex.id, (prev) => ({ ...prev, targetTime: seconds }));
+                      actions.updateExercise(ex.id, (prev) => ({ ...prev, targetTime: seconds }));
                     }}
-                    error={inputErrors[`${ex.id}-targetTime`]}
+                    error={validation.inputErrors[`${ex.id}-targetTime`]}
                     placeholder="0"
                     disabled={false}
                     className="text-sm"
@@ -528,14 +398,14 @@ export default function ProgramEditPage() {
                 </div>
               )}
 
-              {errors.exercises?.[ex.id]?.summary && (
-                <p className="text-sm text-red-600 mt-2">{errors.exercises[ex.id].summary}</p>
+              {validation.errors.exercises?.[ex.id]?.summary && (
+                <p className="text-sm text-red-600 mt-2">{validation.errors.exercises[ex.id].summary}</p>
               )}
             </Card>
           ))}
 
           <Button
-            onClick={addExercise}
+            onClick={actions.addExercise}
             variant="outline"
             fullWidth
             className="border-2 border-dashed border-slate-300 hover:border-blue-400 hover:text-blue-600"
@@ -567,7 +437,7 @@ export default function ProgramEditPage() {
         onClose={() => router.push('/programs/manage')}
         variant="success"
         title="수정 완료!"
-        description={`${title} 프로그램이 수정되었습니다.`}
+        description={`${formState.title} 프로그램이 수정되었습니다.`}
         icon={
           <svg className="w-8 h-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />

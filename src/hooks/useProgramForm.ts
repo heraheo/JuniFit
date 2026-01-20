@@ -4,6 +4,7 @@ import {
   validateProgramForm,
   type ProgramExerciseForm,
 } from "@/lib/validation";
+import { createEmptyExercise } from "@/lib/programs/form";
 
 interface ProgramFormState {
   title: string;
@@ -35,20 +36,7 @@ export function useProgramForm(options: UseProgramFormOptions = {}) {
     title: options.initialTitle || "",
     description: options.initialDescription || "",
     rpe: options.initialRpe || "",
-    exercises: options.initialExercises || [
-      {
-        id: String(Date.now()),
-        exerciseId: "",
-        exerciseName: "",
-        recordType: "",
-        targetPart: "",
-        targetSets: "",
-        restSeconds: "",
-        targetWeight: "",
-        targetReps: "",
-        targetTime: "",
-      },
-    ],
+    exercises: options.initialExercises || [createEmptyExercise()],
   });
 
   const [validation, setValidation] = useState<ProgramFormValidation>({
@@ -68,25 +56,19 @@ export function useProgramForm(options: UseProgramFormOptions = {}) {
     setFormState((prev) => ({ ...prev, rpe }));
   }, []);
 
+  const resetValidation = useCallback(() => {
+    setValidation({ errors: {}, inputErrors: {} });
+  }, []);
+
   const addExercise = useCallback(() => {
     setFormState((prev) => ({
       ...prev,
-      exercises: [
-        ...prev.exercises,
-        {
-          id: String(Date.now() + Math.random()),
-          exerciseId: "",
-          exerciseName: "",
-          recordType: "",
-          targetPart: "",
-          targetSets: "",
-          restSeconds: "",
-          targetWeight: "",
-          targetReps: "",
-          targetTime: "",
-        },
-      ],
+      exercises: [...prev.exercises, createEmptyExercise()],
     }));
+  }, []);
+
+  const setExercises = useCallback((exercises: ProgramExerciseForm[]) => {
+    setFormState((prev) => ({ ...prev, exercises }));
   }, []);
 
   const updateExercise = useCallback(
@@ -165,11 +147,13 @@ export function useProgramForm(options: UseProgramFormOptions = {}) {
       setTitle,
       setDescription,
       setRpe,
+      setExercises,
       addExercise,
       updateExercise,
       removeExercise,
       handleNumericInput,
       validateForm,
+      resetValidation,
     },
   };
 }
