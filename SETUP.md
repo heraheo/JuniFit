@@ -1,4 +1,4 @@
-# 환경변수 설정 가이드
+# SETUP
 
 ## 로컬 개발 환경 설정
 
@@ -16,6 +16,15 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
 3. `Settings` → `API` 에서:
    - **Project URL**: `NEXT_PUBLIC_SUPABASE_URL`
    - **anon (public) key**: `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+
+---
+
+## 로컬 실행
+
+```bash
+npm install
+npm run dev
+```
 
 ---
 
@@ -47,7 +56,6 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
 
 ## 주의사항
 
-⚠️ **중요**: 
 - `.env.local` 파일은 `.gitignore`에 포함되어 있으므로 Git에 커밋되지 않습니다.
 - 팀원들과 공유할 때는 `.env.example` 파일을 사용하세요.
 - `NEXT_PUBLIC_` 접두사가 있는 변수는 클라이언트에 노출됩니다.
@@ -61,4 +69,3 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
 - [ ] Vercel 프로젝트 Settings에서 환경변수 추가
 - [ ] Vercel에서 새로운 배포 트리거
 - [ ] 배포된 사이트에서 Supabase 연결 확인
-
