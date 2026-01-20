@@ -48,7 +48,7 @@ function normalizeSearch(value: string) {
   return value
     .toLowerCase()
     .replace(/\s+/g, '')
-    .replace(/[()\[\]{}.,/\\-]/g, '');
+    .replace(/[()[\]{}.,/\\-]/g, "");
 }
 
 export default function ExerciseSelector({
