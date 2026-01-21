@@ -2,7 +2,8 @@
 
 import { useState } from "react";
 import { Calendar, ChevronDown, ChevronRight, Trash2, Edit3, X, Save } from "lucide-react";
-import { deleteWorkoutSession, updateWorkoutSet, getWorkoutLogs } from "@/lib/api";
+import { deleteWorkoutSession, getWorkoutLogs } from "@/lib/api";
+import { persistWorkoutEdits } from "@/lib/workout/persistence";
 import type { WorkoutSession, WorkoutSet } from "@/types/database";
 import { formatDateWithWeekday, formatTime, calculateDuration, groupSetsByExercise, formatDurationSeconds } from "@/lib/utils";
 import Button from "@/components/ui/Button";
@@ -84,20 +85,19 @@ export function HistoryClient({ initialLogs, initialLimit = PAGE_SIZE }: History
   const saveEditing = async (log: WorkoutLog) => {
     setIsSaving(true);
     try {
-      for (const set of log.sets) {
-        const editedSet = editingSets[set.id];
-        if (editedSet) {
-          const weight = parseFloat(editedSet.weight) || 0;
-          const reps = parseInt(editedSet.reps) || 0;
-          const time = parseFloat(editedSet.time) || 0;
+      const result = await persistWorkoutEdits({
+        sets: log.sets,
+        editingSets,
+      });
 
-          if (weight !== set.weight || reps !== set.reps || time !== set.time) {
-            await updateWorkoutSet(set.id, weight || null, reps || null, time || null);
-          }
-        }
+      if (!result.ok) {
+        throw new Error(result.message);
       }
 
-      await fetchLogs();
+      if (result.changed) {
+        await fetchLogs();
+      }
+
       cancelEditing();
     } catch (error) {
       console.error("Error saving:", error);
