@@ -7,6 +7,14 @@ import Input from '@/components/ui/Input';
 import { EXERCISE_PARTS, PART_LABELS, type ExerciseMeta, type ExercisePart } from '@/constants/exercise';
 import { cn } from '@/lib/utils';
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
+import {
+  FETCH_LIMIT,
+  RESULT_LIMIT,
+  filterExercises,
+  looksLikeMissingColumn,
+  normalizeOption,
+  type ExerciseOption,
+} from '@/lib/workout/exerciseSearch';
 
 interface ExerciseSelectorProps {
   label?: string;
@@ -17,38 +25,6 @@ interface ExerciseSelectorProps {
   value?: ExerciseMeta | null;
   onSelect: (exercise: ExerciseMeta) => void;
   onClear?: () => void;
-}
-
-const RESULT_LIMIT = 20;
-const FETCH_LIMIT = 2000;
-
-type ExerciseOption = ExerciseMeta & {
-  aliases?: string[] | null;
-  description?: string | null;
-  // Some DBs may use effect (singular) vs effects (plural). We normalize to effects for UI.
-  effects?: string | null;
-  effect?: string | null;
-};
-
-function looksLikeMissingColumn(error: unknown, column: string) {
-  if (!error || typeof error !== 'object') return false;
-  const msg = (error as { message?: unknown }).message;
-  if (typeof msg !== 'string') return false;
-  return msg.toLowerCase().includes(column.toLowerCase()) && msg.toLowerCase().includes('does not exist');
-}
-
-function normalizeOption(row: ExerciseOption): ExerciseOption {
-  if (row.effects == null && row.effect != null) {
-    return { ...row, effects: row.effect };
-  }
-  return row;
-}
-
-function normalizeSearch(value: string) {
-  return value
-    .toLowerCase()
-    .replace(/\s+/g, '')
-    .replace(/[()[\]{}.,/\\-]/g, "");
 }
 
 export default function ExerciseSelector({
@@ -205,28 +181,7 @@ export default function ExerciseSelector({
   }, [disabled, supabase, partFilter]);
 
   useEffect(() => {
-    const trimmed = debouncedQuery.trim();
-    const normalized = normalizeSearch(trimmed);
-
-    if (!trimmed) {
-      setResults(candidates.slice(0, RESULT_LIMIT));
-      return;
-    }
-
-    const filtered = candidates.filter(ex => {
-      const name = ex.name ?? '';
-      const aliases = ex.aliases ?? [];
-
-      const haystack = [name, ...aliases].filter(Boolean);
-      return haystack.some(text => {
-        const t = String(text);
-        if (t.includes(trimmed)) return true;
-        if (t.toLowerCase().includes(trimmed.toLowerCase())) return true;
-        return normalizeSearch(t).includes(normalized);
-      });
-    });
-
-    setResults(filtered.slice(0, 50));
+    setResults(filterExercises(candidates, debouncedQuery));
   }, [debouncedQuery, candidates]);
 
   useEffect(() => {
