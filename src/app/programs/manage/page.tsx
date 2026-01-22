@@ -84,9 +84,9 @@ export default function ProgramsManagePage() {
                           <p className="text-xs font-medium text-slate-500 uppercase tracking-wide mb-2">
                             운동 목록 ({program.exercises.length}개)
                           </p>
-                              {program.exercises.map((exercise: any, index: number) => (
-
+                          {program.exercises.map((exercise, index) => (
                             <div 
+
                               key={exercise.id}
                               className="bg-white rounded-lg p-3 border border-gray-200"
                             >

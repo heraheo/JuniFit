@@ -12,7 +12,7 @@ type ExerciseRow = ProgramExercise & {
 };
 
 export type ProgramWithExercises = Program & {
-  exercises?: ProgramExercise[];
+  exercises: ProgramExercise[];
 };
 
 export const mapProgramsWithExercises = (
