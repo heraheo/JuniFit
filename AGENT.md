@@ -109,6 +109,8 @@
 
 <type>: <scope> — <내용>
 
+- 모든 커밋 메시지는 위 형식을 반드시 따른다
+
 - type: feat | fix | refactor | chore | docs | test
 - scope: workout | history | dashboard | programs | auth | ui | supabase
 
