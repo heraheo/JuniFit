@@ -1,116 +1,18 @@
 "use client";
 
-import { useState, useEffect } from "react";
 import Link from "next/link";
 import { ArrowLeft, Trash2, Edit, ChevronDown, ChevronRight, Dumbbell } from "lucide-react";
-import { createClient } from "@/lib/supabase/client";
-import type { Program, ProgramExercise } from "@/types/database";
 import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
 import { EmptyState } from "@/components/ui/EmptyState";
 import Button from "@/components/ui/Button";
 import { formatDurationSeconds } from "@/lib/utils";
-
-type ProgramWithExercises = Program & {
-  exercises?: ProgramExercise[];
-};
+import { useProgramsManage } from "@/hooks/useProgramsManage";
 
 export default function ProgramsManagePage() {
-  const [programs, setPrograms] = useState<ProgramWithExercises[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [deleting, setDeleting] = useState<string | null>(null);
-  const [expandedProgram, setExpandedProgram] = useState<string | null>(null);
-
-  useEffect(() => {
-    fetchPrograms();
-  }, []);
-
-  async function fetchPrograms() {
-    setLoading(true);
-    const supabase = createClient();
-    
-    // 프로그램 목록과 모든 운동 목록을 병렬로 조회하여 속도 개선
-    const [programsResult, exercisesResult] = await Promise.all([
-      supabase
-        .from('programs')
-        .select('*')
-        .eq('is_archived', false)
-        .order('created_at', { ascending: false }),
-      supabase
-        .from('program_exercises')
-        .select('id, program_id, exercise_id, order, target_sets, target_reps, target_weight, target_time, rest_seconds, created_at, exercises ( name, target_part, record_type )')
-        .order('order', { ascending: true })
-    ]);
-
-    const { data: programsData, error: programsError } = programsResult;
-    const { data: allExercises, error: exercisesError } = exercisesResult;
-
-    if (programsError) {
-      console.error('Error fetching programs:', programsError);
-      alert('프로그램 목록을 불러오는데 실패했습니다.');
-      setPrograms([]);
-    } else if (exercisesError) {
-      console.error('Error fetching exercises:', exercisesError);
-      setPrograms(programsData || []);
-    } else {
-      // 각 프로그램에 해당하는 운동 목록 매핑
-      const programsWithExercises = (programsData || []).map(program => ({
-        ...program,
-        exercises:
-          allExercises
-            ?.filter((ex: any) => ex.program_id === program.id)
-            .map((ex: any) => {
-              const meta = Array.isArray(ex.exercises) ? ex.exercises[0] : ex.exercises;
-              return {
-                ...ex,
-                name: meta?.name ?? '',
-                target_part: meta?.target_part,
-                record_type: meta?.record_type,
-              };
-            }) || [],
-      }));
-      setPrograms(programsWithExercises);
-    }
-    setLoading(false);
-  }
-
-  // 프로그램 펼치기/접기 (운동 목록은 이미 로드되어 있음)
-  function toggleProgram(programId: string) {
-    if (expandedProgram === programId) {
-      setExpandedProgram(null);
-    } else {
-      setExpandedProgram(programId);
-    }
-  }
-
-  async function handleDelete(program: Program) {
-    const confirmed = window.confirm(
-      `"${program.title}" 프로그램을 삭제하시겠습니까?`
-    );
-
-    if (!confirmed) return;
-
-    setDeleting(program.id);
-
-    try {
-      const supabase = createClient();
-      // 소프트 삭제: 실제 데이터를 삭제하지 않고 is_archived 플래그만 true로 변경
-      // 이렇게 하면 workout_sessions에 연결된 운동 기록이 보존됨
-      const { error } = await supabase
-        .from('programs')
-        .update({ is_archived: true })
-        .eq('id', program.id);
-
-      if (error) throw error;
-
-      // 성공 시 알림 없이 조용히 목록 새로고침
-      await fetchPrograms();
-    } catch (error) {
-      console.error('Error archiving program:', error);
-      alert('프로그램 삭제에 실패했습니다.');
-    } finally {
-      setDeleting(null);
-    }
-  }
+  const {
+    state: { programs, loading, deleting, expandedProgram },
+    actions: { toggleProgram, handleDelete },
+  } = useProgramsManage();
 
   return (
     <div className="min-h-screen px-4 pt-6 pb-8 bg-gray-50">
@@ -182,7 +84,8 @@ export default function ProgramsManagePage() {
                           <p className="text-xs font-medium text-slate-500 uppercase tracking-wide mb-2">
                             운동 목록 ({program.exercises.length}개)
                           </p>
-                          {program.exercises.map((exercise, index) => (
+                              {program.exercises.map((exercise: any, index: number) => (
+
                             <div 
                               key={exercise.id}
                               className="bg-white rounded-lg p-3 border border-gray-200"
