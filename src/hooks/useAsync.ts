@@ -48,7 +48,7 @@ export function useAsync<T>(
     return () => {
       mounted = false;
     };
-  }, deps);
+  }, [asyncFn, deps]);
 
   return {
     ...state,

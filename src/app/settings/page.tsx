@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { ArrowLeft, LogOut, User } from "lucide-react";
@@ -20,7 +21,7 @@ export default function SettingsPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const router = useRouter();
-  const supabase = createClient();
+  const supabase = useMemo(() => createClient(), []);
 
   // 닉네임 기반 아바타 URL 생성 (미리보기용)
   const previewAvatarUrl = nickname 
@@ -29,15 +30,15 @@ export default function SettingsPage() {
 
   useEffect(() => {
     const getProfile = async () => {
-      // 사용자 조회
-      const { data: { user } } = await supabase.auth.getUser();
-      
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
       if (!user) {
         router.push('/login');
         return;
       }
 
-      // user가 확인되면 바로 프로필 조회 (병렬 처리 효과)
       const { data: profileData, error } = await supabase
         .from(TABLE_NAMES.PROFILES)
         .select('nickname, avatar_url')
@@ -60,7 +61,7 @@ export default function SettingsPage() {
     };
 
     getProfile();
-  }, [router]);
+  }, [router, supabase]);
 
   const handleSaveNickname = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -172,9 +173,11 @@ export default function SettingsPage() {
             {/* 아바타 미리보기 */}
             <div className="flex justify-center">
               <div className="w-32 h-32 rounded-full overflow-hidden border-4 border-purple-200 shadow-lg bg-white">
-                <img 
-                  src={previewAvatarUrl} 
+                <Image
+                  src={previewAvatarUrl}
                   alt="아바타 미리보기"
+                  width={128}
+                  height={128}
                   className="w-full h-full object-cover"
                 />
               </div>

@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
+import Image from "next/image";
 import { createClient } from "@/lib/supabase/client";
 import Button from "@/components/ui/Button";
 import Input from "@/components/ui/Input";
@@ -12,11 +13,13 @@ export default function OnboardingPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [userId, setUserId] = useState<string | null>(null);
   const router = useRouter();
-  const supabase = createClient();
+  const supabase = useMemo(() => createClient(), []);
 
   useEffect(() => {
     const getUser = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
       if (user) {
         setUserId(user.id);
       } else {
@@ -24,12 +27,13 @@ export default function OnboardingPage() {
       }
     };
     getUser();
-  }, [router]);
+  }, [router, supabase]);
 
   // 닉네임 기반 아바타 URL 생성
   const avatarUrl = nickname 
     ? `${AVATAR.API_BASE}?seed=${encodeURIComponent(nickname)}`
     : `${AVATAR.API_BASE}?seed=${AVATAR.DEFAULT_SEED}`;
+
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -85,9 +89,11 @@ export default function OnboardingPage() {
           {/* 아바타 미리보기 */}
           <div className="flex justify-center">
             <div className="w-32 h-32 rounded-full overflow-hidden border-4 border-purple-200 shadow-lg bg-white">
-              <img 
-                src={avatarUrl} 
+              <Image
+                src={avatarUrl}
                 alt="아바타 미리보기"
+                width={128}
+                height={128}
                 className="w-full h-full object-cover"
               />
             </div>

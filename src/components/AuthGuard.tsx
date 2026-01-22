@@ -202,7 +202,9 @@ export default function AuthGuard({ children }: { children: React.ReactNode }) {
     logEnvInfo();
     checkAuth();
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((event, session) => {
       if (!initialEventHandledRef.current && event === "SIGNED_IN") {
         initialEventHandledRef.current = true;
         addDebug("초기 SIGNED_IN 이벤트 무시");
@@ -210,7 +212,9 @@ export default function AuthGuard({ children }: { children: React.ReactNode }) {
       }
 
       addDebug(`인증 이벤트: ${event}`);
-      addDebug(`세션 이벤트: ${session ? `user=${session.user.id.slice(0, 8)} exp=${session.expires_at ?? "none"}` : "none"}`);
+      addDebug(
+        `세션 이벤트: ${session ? `user=${session.user.id.slice(0, 8)} exp=${session.expires_at ?? "none"}` : "none"}`
+      );
 
       if (event === "SIGNED_OUT") {
         if (isMountedRef.current) {
@@ -229,7 +233,7 @@ export default function AuthGuard({ children }: { children: React.ReactNode }) {
     return () => {
       subscription.unsubscribe();
     };
-  }, [addDebug, checkAuth, router, supabase]);
+  }, [addDebug, checkAuth, logEnvInfo, router, supabase]);
 
   if (isLoading) {
     return (

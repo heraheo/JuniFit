@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import Image from "next/image";
 import Link from "next/link";
 import { Plus, Play, FolderOpen, History, BarChart3, LogOut, Settings } from "lucide-react";
 import { Card } from "@/components/ui/Card";
@@ -16,15 +17,16 @@ export default function Page() {
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const supabase = createClient();
+  const supabase = useMemo(() => createClient(), []);
 
   useEffect(() => {
     const getUserAndProfile = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
       setUser(user);
 
       if (user) {
-        // 프로필 정보 가져오기 (타임아웃 5초로 설정)
         const { data: profileData, error: profileError } = await supabase
           .from('profiles')
           .select('nickname, avatar_url')
@@ -33,7 +35,6 @@ export default function Page() {
 
         if (profileError) {
           console.error('프로필 조회 오류:', profileError);
-          // 타임아웃이거나 다른 에러여도 계속 진행
         }
 
         if (profileData) {
@@ -46,11 +47,12 @@ export default function Page() {
 
     getUserAndProfile();
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange(async (_event, session) => {
       setUser(session?.user ?? null);
 
       if (session?.user) {
-        // 프로필 정보 가져오기 (타임아웃 5초로 설정)
         const { data: profileData, error: profileError } = await supabase
           .from('profiles')
           .select('nickname, avatar_url')
@@ -70,7 +72,7 @@ export default function Page() {
     });
 
     return () => subscription.unsubscribe();
-  }, []);
+  }, [supabase]);
 
   const handleLogout = async () => {
     const confirmed = window.confirm('로그아웃 하시겠습니까?');
@@ -110,9 +112,11 @@ export default function Page() {
           <div className="mb-8 bg-gradient-to-r from-blue-500 to-purple-600 rounded-2xl shadow-xl p-6 text-white">
             <div className="flex items-center gap-4">
               <div className="w-16 h-16 rounded-full overflow-hidden border-4 border-white shadow-lg bg-white flex-shrink-0">
-                <img
+                <Image
                   src={profile.avatar_url || `https://api.dicebear.com/9.x/notionists/svg?seed=${profile.nickname}`}
                   alt={profile.nickname}
+                  width={64}
+                  height={64}
                   className="w-full h-full object-cover"
                 />
               </div>
