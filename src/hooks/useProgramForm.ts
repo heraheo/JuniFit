@@ -13,7 +13,7 @@ interface ProgramFormState {
   exercises: ProgramExerciseForm[];
 }
 
-interface ProgramFormValidation {
+export interface ProgramFormValidation {
   errors: {
     title?: string;
     description?: string;

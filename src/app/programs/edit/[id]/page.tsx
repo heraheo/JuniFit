@@ -1,6 +1,5 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { useRouter, useParams } from "next/navigation";
 import { Trash, ArrowLeft } from "lucide-react";
@@ -8,225 +7,24 @@ import Button from "@/components/ui/Button";
 import Input from "@/components/ui/Input";
 import { Modal } from "@/components/ui/Modal";
 import { Card } from "@/components/ui/Card";
-import { createClient } from "@/lib/supabase/client";
 import ExerciseSelector from "@/components/ExerciseSelector";
 import TimeInput from "@/components/ui/TimeInput";
-import { useProgramForm, type ProgramExerciseForm } from "@/hooks/useProgramForm";
-import {
-  formatUnknownError,
-  isExerciseComplete,
-  isRlsError,
-  looksLikeMissingColumn,
-  toExerciseMeta,
-  toProgramExercisesPayload,
-} from "@/lib/programs/form";
+import { useProgramForm } from "@/hooks/useProgramForm";
+import { useProgramEdit } from "@/hooks/useProgramEdit";
+import { toExerciseMeta } from "@/lib/programs/form";
 
 export default function ProgramEditPage() {
   const router = useRouter();
   const params = useParams();
   const programId = params.id as string;
 
-  const [loading, setLoading] = useState(true);
   const { formState, validation, actions } = useProgramForm();
-  const [isSaving, setIsSaving] = useState(false);
-  const [showSuccessModal, setShowSuccessModal] = useState(false);
-
-  const fetchProgram = useCallback(async () => {
-    setLoading(true);
-    try {
-      const supabase = createClient();
-
-      // 프로그램 정보와 운동 목록을 병렬로 조회하여 속도 개선
-      const [programResult, exercisesResult] = await Promise.all([
-        supabase
-          .from('programs')
-          .select('*')
-          .eq('id', programId)
-          .single(),
-        supabase
-          .from('program_exercises')
-          .select('id, program_id, exercise_id, order, target_sets, target_reps, target_weight, target_time, rest_seconds, exercises ( id, name, target_part, record_type )')
-          .eq('program_id', programId)
-          .order('order', { ascending: true })
-      ]);
-
-      const { data: program, error: programError } = programResult;
-      const { data: programExercises, error: exercisesError } = exercisesResult;
-
-      if (programError && isRlsError(programError)) {
-        alert("권한이 없습니다. 관리자에게 문의해주세요.");
-        router.push('/programs/manage');
-        return;
-      }
-
-      if (programError) throw programError;
-      if (!program) throw new Error('프로그램을 찾을 수 없습니다.');
-
-      if (exercisesError && isRlsError(exercisesError)) {
-        alert("권한이 없습니다. 관리자에게 문의해주세요.");
-        router.push('/programs/manage');
-        return;
-      }
-
-      if (exercisesError) throw exercisesError;
-
-      actions.setTitle(program.title);
-      actions.setDescription(program.description || '');
-      actions.setRpe(program.rpe ? String(program.rpe) : '');
-
-      // DB 데이터를 UI 형식으로 변환
-      const convertedExercises: ProgramExerciseForm[] = (programExercises || []).map((ex: any) => {
-        const meta = Array.isArray(ex.exercises) ? ex.exercises[0] : ex.exercises;
-        return {
-          id: ex.id,
-          exerciseId: ex.exercise_id || '',
-          exerciseName: meta?.name || '',
-          recordType: meta?.record_type || '',
-          targetPart: meta?.target_part || '',
-          targetSets: ex.target_sets != null ? String(ex.target_sets) : '',
-          restSeconds: ex.rest_seconds != null ? String(ex.rest_seconds) : '',
-          targetWeight: ex.target_weight != null ? String(ex.target_weight) : '',
-          targetReps: ex.target_reps != null ? String(ex.target_reps) : '',
-          targetTime: ex.target_time != null ? String(ex.target_time) : '',
-        };
-      });
-
-      actions.setExercises(
-        convertedExercises.length > 0
-          ? convertedExercises
-          : [
-              {
-                id: String(Date.now()),
-                exerciseId: "",
-                exerciseName: "",
-                recordType: "",
-                targetPart: "",
-                targetSets: "",
-                restSeconds: "",
-                targetWeight: "",
-                targetReps: "",
-                targetTime: "",
-              },
-            ]
-      );
-      actions.resetValidation();
-
-    } catch (error) {
-      console.error('Error fetching program:', error);
-      alert('프로그램을 불러오는데 실패했습니다.');
-      router.push('/programs/manage');
-    } finally {
-      setLoading(false);
-    }
-  }, [programId, router, actions]);
-
-
-  useEffect(() => {
-    fetchProgram();
-  }, [fetchProgram]);
-
-
-  const save = async () => {
-    if (isSaving) return;
-
-    const hasInputErrors = Object.keys(validation.inputErrors).length > 0;
-    if (hasInputErrors) {
-      alert("입력 오류를 먼저 수정해주세요.");
-      return;
-    }
-
-    if (!actions.validateForm()) {
-      alert("필수 입력란을 모두 채워주세요.");
-      return;
-    }
-
-    setIsSaving(true);
-
-    try {
-      const supabase = createClient();
-      // 인증 확인
-      const { data: { user }, error: authError } = await supabase.auth.getUser();
-      if (authError || !user) {
-        alert("로그인이 필요합니다. 다시 로그인해주세요.");
-        router.push('/login');
-        return;
-      }
-
-      const completeExercises = formState.exercises.filter(isExerciseComplete);
-      if (completeExercises.length === 0) {
-        setIsSaving(false);
-        alert("완성된 운동을 최소 1개 이상 추가해주세요.");
-        return;
-      }
-
-      // 1. 프로그램 정보 업데이트
-      let { error: programError } = await supabase
-        .from('programs')
-        .update({
-          title: formState.title.trim(),
-          description: formState.description.trim(),
-          rpe: formState.rpe.trim() !== "" ? Number(formState.rpe) : null,
-        })
-        .eq('id', programId);
-
-      if (programError && looksLikeMissingColumn(programError, 'rpe')) {
-        ({ error: programError } = await supabase
-          .from('programs')
-          .update({
-            title: formState.title.trim(),
-            description: formState.description.trim(),
-          })
-          .eq('id', programId));
-      }
-
-      if (programError && isRlsError(programError)) {
-        alert("권한이 없습니다. 관리자에게 문의해주세요.");
-        setIsSaving(false);
-        return;
-      }
-
-      if (programError) throw programError;
-
-      // 2. 기존 운동 목록 삭제
-      const { error: deleteError } = await supabase
-        .from('program_exercises')
-        .delete()
-        .eq('program_id', programId);
-
-      if (deleteError && isRlsError(deleteError)) {
-        alert("권한이 없습니다. 관리자에게 문의해주세요.");
-        setIsSaving(false);
-        return;
-      }
-
-      if (deleteError) throw deleteError;
-
-      // 3. 새로운 운동 목록 저장
-      const programExercises = toProgramExercisesPayload(completeExercises, programId);
-
-      let exercisesError: any = null;
-      ({ error: exercisesError } = await supabase
-        .from('program_exercises')
-        .insert(programExercises));
-
-      if (exercisesError && isRlsError(exercisesError)) {
-        alert("권한이 없습니다. 관리자에게 문의해주세요.");
-        setIsSaving(false);
-        return;
-      }
-
-      if (exercisesError) throw exercisesError;
-
-
-      setIsSaving(false);
-      setShowSuccessModal(true);
-
-    } catch (error) {
-      console.error('Update error:', error);
-      setIsSaving(false);
-      alert(`수정 중 오류가 발생했습니다.\n${formatUnknownError(error)}`);
-    }
-  };
+  const { loading, isSaving, showSuccessModal, setShowSuccessModal, save } = useProgramEdit({
+    programId,
+    formState,
+    actions,
+    validation,
+  });
 
   if (loading) {
     return (
