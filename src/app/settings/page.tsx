@@ -9,16 +9,11 @@ import Link from "next/link";
 import Button from "@/components/ui/Button";
 import Input from "@/components/ui/Input";
 import { TABLE_NAMES, AVATAR } from "@/constants";
-
-type Profile = {
-  nickname: string;
-  avatar_url?: string;
-};
+import { useAuthProfile } from "@/hooks/useAuthProfile";
 
 export default function SettingsPage() {
-  const [profile, setProfile] = useState<Profile | null>(null);
+  const { user, profile, loading, refresh } = useAuthProfile();
   const [nickname, setNickname] = useState("");
-  const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const router = useRouter();
   const supabase = useMemo(() => createClient(), []);
@@ -29,39 +24,15 @@ export default function SettingsPage() {
     : `${AVATAR.API_BASE}?seed=${AVATAR.DEFAULT_SEED}`;
 
   useEffect(() => {
-    const getProfile = async () => {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
+    if (!user) {
+      router.push('/login');
+      return;
+    }
 
-      if (!user) {
-        router.push('/login');
-        return;
-      }
-
-      const { data: profileData, error } = await supabase
-        .from(TABLE_NAMES.PROFILES)
-        .select('nickname, avatar_url')
-        .eq('id', user.id)
-        .single();
-
-      if (error) {
-        console.error('프로필 조회 오류:', error);
-        alert('프로필 정보를 불러올 수 없습니다.');
-        setIsLoading(false);
-        return;
-      }
-
-      if (profileData) {
-        setProfile(profileData);
-        setNickname(profileData.nickname);
-      }
-
-      setIsLoading(false);
-    };
-
-    getProfile();
-  }, [router, supabase]);
+    if (profile) {
+      setNickname(profile.nickname);
+    }
+  }, [profile, router, user]);
 
   const handleSaveNickname = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -104,11 +75,7 @@ export default function SettingsPage() {
       }
 
       // 상태 업데이트
-      setProfile({
-        nickname: nickname.trim(),
-        avatar_url: newAvatarUrl,
-      });
-
+      await refresh();
       alert('닉네임이 성공적으로 변경되었습니다!');
       
     } catch (error) {
@@ -139,7 +106,7 @@ export default function SettingsPage() {
     }
   };
 
-  if (isLoading) {
+  if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <p className="text-slate-600">로딩 중...</p>
