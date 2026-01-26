@@ -1,33 +1,26 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { createClient } from "@/lib/supabase/client";
 import Button from "@/components/ui/Button";
 import Input from "@/components/ui/Input";
 import { TABLE_NAMES, AVATAR } from "@/constants";
+import { useAuthProfile } from "@/hooks/useAuthProfile";
 
 export default function OnboardingPage() {
   const [nickname, setNickname] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  const [userId, setUserId] = useState<string | null>(null);
+  const { user } = useAuthProfile();
   const router = useRouter();
   const supabase = useMemo(() => createClient(), []);
 
   useEffect(() => {
-    const getUser = async () => {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      if (user) {
-        setUserId(user.id);
-      } else {
-        router.push('/login');
-      }
-    };
-    getUser();
-  }, [router, supabase]);
+    if (!user) {
+      router.push('/login');
+    }
+  }, [router, user]);
 
   // 닉네임 기반 아바타 URL 생성
   const avatarUrl = nickname 
@@ -43,7 +36,7 @@ export default function OnboardingPage() {
       return;
     }
 
-    if (!userId) {
+    if (!user) {
       alert('사용자 정보를 불러올 수 없습니다.');
       return;
     }
@@ -55,7 +48,7 @@ export default function OnboardingPage() {
       const { error } = await supabase
         .from(TABLE_NAMES.PROFILES)
         .upsert({
-          id: userId,
+          id: user.id,
           nickname: nickname.trim(),
           avatar_url: avatarUrl,
         });

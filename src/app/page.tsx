@@ -1,78 +1,16 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { Plus, Play, FolderOpen, History, BarChart3, LogOut, Settings } from "lucide-react";
 import { Card } from "@/components/ui/Card";
 import { createClient } from "@/lib/supabase/client";
-import type { User } from "@supabase/supabase-js";
-
-type Profile = {
-  nickname: string;
-  avatar_url?: string;
-};
+import { useAuthProfile } from "@/hooks/useAuthProfile";
 
 export default function Page() {
-  const [user, setUser] = useState<User | null>(null);
-  const [profile, setProfile] = useState<Profile | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const { user, profile, loading } = useAuthProfile();
   const supabase = useMemo(() => createClient(), []);
-
-  useEffect(() => {
-    const getUserAndProfile = async () => {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      setUser(user);
-
-      if (user) {
-        const { data: profileData, error: profileError } = await supabase
-          .from('profiles')
-          .select('nickname, avatar_url')
-          .eq('id', user.id)
-          .maybeSingle();
-
-        if (profileError) {
-          console.error('프로필 조회 오류:', profileError);
-        }
-
-        if (profileData) {
-          setProfile(profileData);
-        }
-      }
-
-      setIsLoading(false);
-    };
-
-    getUserAndProfile();
-
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange(async (_event, session) => {
-      setUser(session?.user ?? null);
-
-      if (session?.user) {
-        const { data: profileData, error: profileError } = await supabase
-          .from('profiles')
-          .select('nickname, avatar_url')
-          .eq('id', session.user.id)
-          .maybeSingle();
-
-        if (profileError) {
-          console.error('프로필 조회 오류:', profileError);
-        }
-
-        if (profileData) {
-          setProfile(profileData);
-        }
-      } else {
-        setProfile(null);
-      }
-    });
-
-    return () => subscription.unsubscribe();
-  }, [supabase]);
 
   const handleLogout = async () => {
     const confirmed = window.confirm('로그아웃 하시겠습니까?');
@@ -86,9 +24,7 @@ export default function Page() {
         alert('로그아웃 중 오류가 발생했습니다.');
         return;
       }
-      
-      setUser(null);
-      setProfile(null);
+
       window.location.href = '/login';
     } catch (error) {
       console.error('로그아웃 오류:', error);
@@ -96,7 +32,7 @@ export default function Page() {
     }
   };
 
-  if (isLoading) {
+  if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <p className="text-slate-600">로딩 중...</p>
