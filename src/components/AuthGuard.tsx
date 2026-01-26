@@ -2,40 +2,14 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter, usePathname } from "next/navigation";
-import { createClient } from "@/lib/supabase/client";
-
-const AUTH_TIMEOUT_MS = 7000;
-
-function withTimeout<T>(promise: Promise<T> | PromiseLike<T>, label: string): Promise<T> {
-  return new Promise<T>((resolve, reject) => {
-    const timer = setTimeout(() => {
-      reject(new Error(`${label} timeout`));
-    }, AUTH_TIMEOUT_MS);
-
-    Promise.resolve(promise).then(
-      (value) => {
-        clearTimeout(timer);
-        resolve(value);
-      },
-      (error) => {
-        clearTimeout(timer);
-        reject(error);
-      }
-    );
-  });
-}
+import { useAuthProfile } from "@/hooks/useAuthProfile";
 
 export default function AuthGuard({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
-  const [isLoading, setIsLoading] = useState(true);
+  const { user, profile, loading, error, refresh } = useAuthProfile();
   const [authError, setAuthError] = useState<string | null>(null);
   const [debugInfo, setDebugInfo] = useState<string[]>([]);
-  const supabase = createClient();
-
-  const isCheckingRef = useRef(false);
-  const isMountedRef = useRef(true);
-  const initialEventHandledRef = useRef(false);
   const envInfoLoggedRef = useRef(false);
 
   const addDebug = useCallback((msg: string) => {
@@ -76,166 +50,73 @@ export default function AuthGuard({ children }: { children: React.ReactNode }) {
       if (typeof document !== "undefined") {
         document.removeEventListener("visibilitychange", handleVisibility);
       }
-      isMountedRef.current = false;
     };
   }, [addDebug]);
 
-  const finishCheck = useCallback(() => {
-    isCheckingRef.current = false;
-    if (isMountedRef.current) {
-      setIsLoading(false);
-    }
-  }, []);
+  useEffect(() => {
+    logEnvInfo();
+  }, [logEnvInfo]);
 
-  const checkAuth = useCallback(async () => {
-    if (isCheckingRef.current) {
-      addDebug("이미 체크 중 - 스킵");
+  useEffect(() => {
+    if (!error) {
+      setAuthError(null);
       return;
     }
 
-    isCheckingRef.current = true;
-    if (isMountedRef.current) {
-      setAuthError(null);
-    }
-    addDebug(`시작 - 경로: ${pathname}`);
-
-    try {
-      const isAuthCallback = pathname?.startsWith("/auth/callback");
-      const isLoginPath = pathname === "/login";
-      const isOnboardingPath = pathname === "/onboarding";
-
-      if (isAuthCallback) {
-        addDebug("콜백 페이지 - 로딩 종료");
-        finishCheck();
-        return;
-      }
-
-      addDebug(`네트워크: online=${typeof navigator !== "undefined" ? String(navigator.onLine) : "unknown"}`);
-
-      addDebug("세션 확인 중...");
-      const sessionStart = performance.now();
-      const sessionResponse = await withTimeout(supabase.auth.getSession(), "세션 확인");
-      addDebug(`세션 확인 완료 (${Math.round(performance.now() - sessionStart)}ms)`);
-
-      const { data: { session }, error: sessionError } = sessionResponse;
-
-      if (sessionError) {
-        addDebug(`세션 에러: ${sessionError.message}`);
-        throw sessionError;
-      }
-
-      addDebug(session ? `세션 있음 (ID: ${session.user.id.slice(0, 8)} exp=${session.expires_at ?? "none"})` : "세션 없음");
-
-      if (!session) {
-        if (!isLoginPath) {
-          addDebug("/login으로 이동");
-          router.push("/login");
-        } else {
-          addDebug("이미 로그인 페이지");
-        }
-        finishCheck();
-        return;
-      }
-
-      addDebug("프로필 조회 시작");
-      const profileQuery = supabase
-        .from("profiles")
-        .select("nickname")
-        .eq("id", session.user.id)
-        .maybeSingle();
-      
-      const profileStart = performance.now();
-      const profileResponse = await withTimeout(
-        profileQuery,
-        "프로필 조회"
-      );
-      addDebug(`프로필 조회 완료 (${Math.round(performance.now() - profileStart)}ms)`);
-
-      const { data: profile, error: profileError } = profileResponse;
-
-      if (profileError) {
-        addDebug(`프로필 에러: ${profileError.message}`);
-        throw profileError;
-      }
-
-      const hasNickname = Boolean(profile?.nickname && profile.nickname.trim() !== "");
-      addDebug(`닉네임 체크: ${hasNickname} (값: ${profile?.nickname || "null"})`);
-
-      if (!hasNickname) {
-        if (!isOnboardingPath) {
-          addDebug("/onboarding으로 이동");
-          router.push("/onboarding");
-        } else {
-          addDebug("이미 온보딩 페이지");
-        }
-        finishCheck();
-        return;
-      }
-
-      if (isLoginPath || isOnboardingPath) {
-        addDebug("메인으로 이동");
-        router.push("/");
-      }
-
-      addDebug("로딩 종료");
-      finishCheck();
-    } catch (error) {
-      const errMsg = error instanceof Error ? error.message : String(error);
-      addDebug(`예외: ${errMsg}`);
-      if (isMountedRef.current) {
-        setAuthError(errMsg.includes("timeout") ? "서버 응답이 지연되고 있습니다. 잠시 후 다시 시도해주세요." : errMsg);
-      }
-      finishCheck();
-    }
-  }, [addDebug, finishCheck, pathname, router, supabase]);
-
-  const handleRetry = useCallback(() => {
-    if (isCheckingRef.current) return;
-    addDebug("재시도 클릭");
-    setAuthError(null);
-    setIsLoading(true);
-    checkAuth();
-  }, [addDebug, checkAuth]);
+    const errMsg = error instanceof Error ? error.message : String(error);
+    setAuthError(
+      errMsg.includes("timeout")
+        ? "서버 응답이 지연되고 있습니다. 잠시 후 다시 시도해주세요."
+        : errMsg
+    );
+  }, [error]);
 
   useEffect(() => {
-    initialEventHandledRef.current = false;
-    logEnvInfo();
-    checkAuth();
+    const userLabel = user ? user.id.slice(0, 8) : "none";
+    const nickname = profile?.nickname ?? "none";
+    addDebug(`상태: loading=${loading} user=${userLabel} nickname=${nickname}`);
 
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((event, session) => {
-      if (!initialEventHandledRef.current && event === "SIGNED_IN") {
-        initialEventHandledRef.current = true;
-        addDebug("초기 SIGNED_IN 이벤트 무시");
-        return;
-      }
+    if (loading) return;
 
-      addDebug(`인증 이벤트: ${event}`);
-      addDebug(
-        `세션 이벤트: ${session ? `user=${session.user.id.slice(0, 8)} exp=${session.expires_at ?? "none"}` : "none"}`
-      );
+    const isLoginPath = pathname === "/login";
+    const isOnboardingPath = pathname === "/onboarding";
 
-      if (event === "SIGNED_OUT") {
-        if (isMountedRef.current) {
-          setAuthError(null);
-          setIsLoading(false);
-        }
+    if (!user) {
+      if (!isLoginPath) {
+        addDebug("/login으로 이동");
         router.push("/login");
-        return;
+      } else {
+        addDebug("이미 로그인 페이지");
       }
+      return;
+    }
 
-      if (["SIGNED_IN", "TOKEN_REFRESHED", "USER_UPDATED"].includes(event)) {
-        checkAuth();
+    const hasNickname = Boolean(profile?.nickname && profile.nickname.trim() !== "");
+    addDebug(`닉네임 체크: ${hasNickname}`);
+
+    if (!hasNickname) {
+      if (!isOnboardingPath) {
+        addDebug("/onboarding으로 이동");
+        router.push("/onboarding");
+      } else {
+        addDebug("이미 온보딩 페이지");
       }
-    });
+      return;
+    }
 
-    return () => {
-      subscription.unsubscribe();
-    };
-  }, [addDebug, checkAuth, logEnvInfo, router, supabase]);
+    if (isLoginPath || isOnboardingPath) {
+      addDebug("메인으로 이동");
+      router.push("/");
+    }
+  }, [addDebug, loading, pathname, profile, router, user]);
 
-  if (isLoading) {
+  const handleRetry = useCallback(() => {
+    addDebug("재시도 클릭");
+    setAuthError(null);
+    refresh();
+  }, [addDebug, refresh]);
+
+  if (loading) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 p-4">
         <div className="text-center mb-8">
@@ -247,7 +128,9 @@ export default function AuthGuard({ children }: { children: React.ReactNode }) {
           <p className="font-bold mb-2 text-slate-700">디버그 로그:</p>
           <div className="space-y-1 max-h-64 overflow-y-auto">
             {debugInfo.map((info, i) => (
-              <p key={i} className="text-slate-600 font-mono">{info}</p>
+              <p key={i} className="text-slate-600 font-mono">
+                {info}
+              </p>
             ))}
           </div>
         </div>
@@ -275,7 +158,9 @@ export default function AuthGuard({ children }: { children: React.ReactNode }) {
           <p className="font-bold mb-2 text-slate-700">디버그 로그:</p>
           <div className="space-y-1 max-h-64 overflow-y-auto">
             {debugInfo.map((info, i) => (
-              <p key={i} className="text-slate-600 font-mono">{info}</p>
+              <p key={i} className="text-slate-600 font-mono">
+                {info}
+              </p>
             ))}
           </div>
         </div>
